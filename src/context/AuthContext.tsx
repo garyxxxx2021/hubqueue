@@ -40,18 +40,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchUserByUsername = async (username: string) => {
+    try {
+      const users = await getUsers();
+      const foundUser = users.find(u => u.username === username);
+      if (foundUser) {
+        const userData = { 
+          username: foundUser.username, 
+          isAdmin: foundUser.isAdmin, 
+          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+        };
+        setUser(userData);
+      } else {
+        // User in cookie not found in DB, treat as logged out
+        logout();
+      }
+    } catch (error) {
+      console.error("Failed to fetch user data", error);
+      logout(); // Log out on error
+    }
+  };
+
   useEffect(() => {
-    const loadUserFromCookie = () => {
+    const loadUserFromCookie = async () => {
+      setIsLoading(true);
       try {
-          const storedUser = Cookies.get(USER_COOKIE_KEY);
-          if (storedUser) {
-              setUser(JSON.parse(storedUser));
+          const storedUsername = Cookies.get(USER_COOKIE_KEY);
+          if (storedUsername) {
+              await fetchUserByUsername(storedUsername);
           }
       } catch (error) {
-          console.error("Failed to parse user from cookie", error);
-          Cookies.remove(USER_COOKIE_KEY);
+          console.error("Failed to process user from cookie", error);
+          logout();
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     loadUserFromCookie();
@@ -59,25 +82,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const updateUserStatus = async (username: string) => {
     if (user && user.username === username) {
-      try {
-        const users = await getUsers();
-        const foundUser = users.find(u => u.username === username);
-        if (foundUser) {
-          const userData = { 
-            username: foundUser.username, 
-            isAdmin: foundUser.isAdmin, 
-            isTrusted: foundUser.isAdmin || foundUser.isTrusted 
-          };
-          Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error("Failed to update user status:", error);
-      }
+      setIsLoading(true);
+      await fetchUserByUsername(username);
+      setIsLoading(false);
     }
   };
   
   const login = async (username: string, password_input: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
       const users = await getUsers();
       const passwordHash = await hashPassword(password_input);
@@ -89,7 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isAdmin: foundUser.isAdmin, 
           isTrusted: foundUser.isAdmin || foundUser.isTrusted 
         };
-        Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
+        Cookies.set(USER_COOKIE_KEY, foundUser.username, { expires: 7 }); 
         setUser(userData);
         return true;
       }
@@ -97,6 +109,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error("Login failed:", error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -129,7 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (success) {
             const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
-            Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
+            Cookies.set(USER_COOKIE_KEY, newUser.username, { expires: 7 });
             setUser(userData);
             return { success: true, message: "注册成功！" };
         } else {
