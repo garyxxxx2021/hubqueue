@@ -60,8 +60,6 @@ export default function Dashboard() {
               description: `${imageToUpload.name} has been uploaded.`,
             });
         } else {
-            // The service throws an error on failure, so this path might not be hit,
-            // but it's good practice for handling potential non-throwing failures.
             throw new Error(result.error || 'Upload failed due to an unknown error.');
         }
 
