@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, Upload, CheckCircle2, XCircle, Trash2, User } from 'lucide-react';
+import { Loader2, GitBranch, Upload, CheckCircle2, XCircle, Trash2, User, RefreshCcw } from 'lucide-react';
 
 interface ImageCardProps {
   image: ImageFile;
@@ -27,6 +27,10 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
   const getAiHint = (imageName: string): string => {
     return imageName.split('.')[0].replace(/-/g, ' ').split(' ').slice(0, 2).join(' ');
   };
+
+  const handleRetryUpload = () => {
+    onUpload(id);
+  }
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
@@ -63,20 +67,24 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                             ) : (
                                 <Upload className="mr-2 h-4 w-4"/>
                             )}
-                            {isUploading ? 'Uploading...' : 'Upload to GitHub'}
+                            {isUploading ? 'Uploading...' : 'Upload to WebDAV'}
                         </Button>
                     )}
                     {status === 'uploaded' && (
                         <div className="flex items-center justify-center text-sm font-medium text-foreground/80">
-                            <CheckCircle2 className="mr-2 h-4 w-4"/>
+                            <CheckCircle2 className="mr-2 h-4 w-4 text-green-500"/>
                             Successfully Uploaded
                         </div>
                     )}
                     {status === 'error' && (
-                        <div className="flex items-center justify-center text-sm font-medium text-destructive">
-                            <XCircle className="mr-2 h-4 w-4"/>
-                            Upload Failed
-                        </div>
+                       <Button onClick={handleRetryUpload} variant="destructive" size="sm" className="w-full" disabled={isUploading}>
+                            {isUploading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                            ) : (
+                                <RefreshCcw className="mr-2 h-4 w-4"/>
+                            )}
+                            {isUploading ? 'Retrying...' : 'Retry Upload'}
+                        </Button>
                     )}
                 </div>
                 
