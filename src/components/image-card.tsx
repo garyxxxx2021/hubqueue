@@ -1,10 +1,12 @@
 import Image from 'next/image';
+import { useState } from 'react';
 import type { ImageFile } from '@/types';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User } from 'lucide-react';
+import { Skeleton } from './ui/skeleton';
 
 interface ImageCardProps {
   image: ImageFile;
@@ -23,6 +25,7 @@ const statusConfig = {
 export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps) {
   const { id, name, url, status, claimedBy, isUploading } = image;
   const config = statusConfig[status];
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
   const getAiHint = (imageName: string): string => {
     return imageName.split('.')[0].replace(/-/g, ' ').split(' ').slice(0, 2).join(' ');
@@ -35,8 +38,18 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
       <CardContent className="p-0">
-        <div className="aspect-video relative">
-          <Image src={url} alt={name} fill className="object-cover bg-muted" data-ai-hint={getAiHint(name)} unoptimized />
+        <div className="aspect-video relative bg-muted">
+          {isImageLoading && <Skeleton className="absolute inset-0 w-full h-full" />}
+          <Image 
+            src={url} 
+            alt={name} 
+            fill 
+            className="object-cover" 
+            data-ai-hint={getAiHint(name)} 
+            unoptimized
+            onLoad={() => setIsImageLoading(false)}
+            onError={() => setIsImageLoading(false)}
+          />
         </div>
       </CardContent>
       <div className="p-4 flex-1 flex flex-col">
