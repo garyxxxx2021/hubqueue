@@ -7,14 +7,11 @@ import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { uploadToWebdav } from '@/services/webdav';
 
-const initialImagesData: Omit<ImageFile, 'id'>[] = [
-  { name: 'landscape-sunset.jpg', url: 'https://placehold.co/600x400.png', status: 'queued' },
-  { name: 'modern-architecture.png', url: 'https://placehold.co/600x400.png', status: 'queued' },
-  { name: 'abstract-design.gif', url: 'https://placehold.co/600x400.png', status: 'in-progress', claimedBy: 'User' },
-  { name: 'city-skyline-night.jpg', url: 'https://placehold.co/600x400.png', status: 'uploaded' },
-];
-
 async function urlToDataUrl(url: string): Promise<string> {
+  // If it's already a data URL, return it directly
+  if (url.startsWith('data:')) {
+    return url;
+  }
   const response = await fetch(url);
   const blob = await response.blob();
   return new Promise((resolve, reject) => {
@@ -28,10 +25,6 @@ async function urlToDataUrl(url: string): Promise<string> {
 export default function Dashboard() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const { toast } = useToast();
-
-  useEffect(() => {
-    setImages(initialImagesData.map(img => ({ ...img, id: Math.random().toString(36).substring(2, 9) })));
-  }, []);
 
   const updateImage = (id: string, updates: Partial<ImageFile>) => {
     setImages(prev => prev.map(img => img.id === id ? { ...img, ...updates } : img));
@@ -48,7 +41,6 @@ export default function Dashboard() {
     updateImage(id, { isUploading: true });
 
     try {
-        // Convert placeholder URL to actual image data before uploading
         const dataUrl = await urlToDataUrl(imageToUpload.url);
 
         const result = await uploadToWebdav(imageToUpload.name, dataUrl);
@@ -74,11 +66,11 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddNewImage = () => {
+  const handleAddNewImage = (image: { name: string, url: string }) => {
     const newImage: ImageFile = {
       id: Math.random().toString(36).substring(2, 9),
-      name: `new-image-${Math.floor(Math.random() * 100)}.jpg`,
-      url: 'https://placehold.co/600x400.png',
+      name: image.name,
+      url: image.url,
       status: 'queued',
     };
     setImages(prev => [newImage, ...prev]);
