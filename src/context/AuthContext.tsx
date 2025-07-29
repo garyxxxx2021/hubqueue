@@ -21,7 +21,12 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const USER_COOKIE_KEY = 'hubqueue_user';
+const USER_COOKIE_KEY = 'hubqueue_session';
+
+interface SessionData {
+    username: string;
+    hash: string;
+}
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -40,10 +45,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUserByUsername = async (username: string) => {
+  const verifyAndSetUser = async (username: string, hash: string) => {
     try {
       const users = await getUsers();
-      const foundUser = users.find(u => u.username === username);
+      const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
         const userData = { 
           username: foundUser.username, 
@@ -51,23 +56,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isTrusted: foundUser.isAdmin || foundUser.isTrusted 
         };
         setUser(userData);
-      } else {
-        // User in cookie not found in DB, treat as logged out
-        logout();
+        return true;
       }
     } catch (error) {
-      console.error("Failed to fetch user data", error);
-      logout(); // Log out on error
+      console.error("Failed to fetch user data during verification", error);
     }
+    // If verification fails for any reason, logout
+    logout();
+    return false;
   };
+
 
   useEffect(() => {
     const loadUserFromCookie = async () => {
       setIsLoading(true);
       try {
-          const storedUsername = Cookies.get(USER_COOKIE_KEY);
-          if (storedUsername) {
-              await fetchUserByUsername(storedUsername);
+          const storedSession = Cookies.get(USER_COOKIE_KEY);
+          if (storedSession) {
+            const sessionData: SessionData = JSON.parse(storedSession);
+            if (sessionData.username && sessionData.hash) {
+                await verifyAndSetUser(sessionData.username, sessionData.hash);
+            }
           }
       } catch (error) {
           console.error("Failed to process user from cookie", error);
@@ -82,9 +91,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const updateUserStatus = async (username: string) => {
     if (user && user.username === username) {
-      setIsLoading(true);
-      await fetchUserByUsername(username);
-      setIsLoading(false);
+      const storedSession = Cookies.get(USER_COOKIE_KEY);
+      if (storedSession) {
+        setIsLoading(true);
+        const sessionData: SessionData = JSON.parse(storedSession);
+        await verifyAndSetUser(sessionData.username, sessionData.hash);
+        setIsLoading(false);
+      }
     }
   };
   
@@ -101,7 +114,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isAdmin: foundUser.isAdmin, 
           isTrusted: foundUser.isAdmin || foundUser.isTrusted 
         };
-        Cookies.set(USER_COOKIE_KEY, foundUser.username, { expires: 7 }); 
+        const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
+        Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
         setUser(userData);
         return true;
       }
@@ -121,14 +135,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     setIsLoading(true);
     try {
-        const users = await getUsers();
+        let users = await getUsers();
 
         if (users.find(u => u.username === username)) {
             return { success: false, message: "该用户名已存在。" };
         }
 
         const isAdmin = users.length === 0;
-        const isTrusted = isAdmin; // First user is admin and trusted
+        const isTrusted = isAdmin;
         const passwordHash = await hashPassword(password_input);
 
         const newUser: StoredUser = {
@@ -137,13 +151,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isAdmin,
             isTrusted,
         };
-
-        const updatedUsers = [...users, newUser];
+        
+        // This logic is a bit tricky with a file-based DB.
+        // We fetch again right before saving to minimize race conditions.
+        const currentUsers = await getUsers();
+        if (currentUsers.find(u => u.username === username)) {
+            return { success: false, message: "该用户名刚刚被注册，请换一个。" };
+        }
+        
+        const updatedUsers = [...currentUsers, newUser];
         const { success, error } = await saveUsers(updatedUsers);
 
         if (success) {
             const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
-            Cookies.set(USER_COOKIE_KEY, newUser.username, { expires: 7 });
+            const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
+            Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
             setUser(userData);
             return { success: true, message: "注册成功！" };
         } else {
