@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -14,13 +14,19 @@ import { GitCommit, Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { login, user, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isAuthLoading, router]);
+
   const handleLogin = async () => {
-    setIsLoading(true);
+    setIsLoggingIn(true);
     const success = await login(username, password);
     if (success) {
       router.push('/dashboard');
@@ -31,7 +37,7 @@ export default function LoginPage() {
         description: "无效的用户名或密码。",
       });
     }
-    setIsLoading(false);
+    setIsLoggingIn(false);
   };
   
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -39,6 +45,10 @@ export default function LoginPage() {
       handleLogin();
     }
   };
+
+  if (isAuthLoading || user) {
+    return null; // Or a loading spinner, to prevent flashing the form
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -63,7 +73,7 @@ export default function LoginPage() {
               onKeyDown={handleKeyDown}
               placeholder="输入您的用户名"
               required
-              disabled={isLoading}
+              disabled={isLoggingIn}
             />
           </div>
           <div className="space-y-2">
@@ -76,13 +86,13 @@ export default function LoginPage() {
               onKeyDown={handleKeyDown}
               placeholder="输入您的密码"
               required
-              disabled={isLoading}
+              disabled={isLoggingIn}
             />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button onClick={handleLogin} className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleLogin} className="w-full" disabled={isLoggingIn}>
+            {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             登录
           </Button>
            <p className="text-sm text-center text-muted-foreground">
