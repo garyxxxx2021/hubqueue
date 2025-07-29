@@ -26,7 +26,7 @@ export default function RegisterPage() {
       router.push('/dashboard');
       toast({
         title: "注册成功",
-        description: "欢迎来到 GitShare！",
+        description: "欢迎来到 HubQueue！",
       });
     } else {
       toast({
@@ -52,7 +52,7 @@ export default function RegisterPage() {
             <div className="p-2 bg-accent/20 rounded-lg">
               <GitCommit className="h-7 w-7" style={{ color: 'hsl(var(--accent))' }} />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">GitShare</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
           </div>
           <CardTitle>创建账户</CardTitle>
           <CardDescription>第一个注册的用户将成为管理员。</CardDescription>

@@ -48,7 +48,7 @@ export default function LoginPage() {
                 <div className="p-2 bg-accent/20 rounded-lg">
                     <GitCommit className="h-7 w-7" style={{ color: 'hsl(var(--accent))' }}/>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">GitShare</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
             </div>
           <CardTitle>欢迎回来</CardTitle>
           <CardDescription>输入您的凭据以访问仪表板。</CardDescription>
