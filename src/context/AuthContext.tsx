@@ -2,6 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import Cookies from 'js-cookie';
 import { getUsers, saveUsers, StoredUser } from '@/services/webdav'; 
 
 interface User {
@@ -19,6 +20,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const USER_COOKIE_KEY = 'hubqueue_user';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -39,13 +41,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     try {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = Cookies.get(USER_COOKIE_KEY);
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
     } catch (error) {
-        console.error("Failed to parse user from localStorage", error);
-        localStorage.removeItem('user');
+        console.error("Failed to parse user from cookie", error);
+        Cookies.remove(USER_COOKIE_KEY);
     }
     setIsLoading(false);
   }, []);
@@ -56,9 +58,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
     if (foundUser) {
-      const isTrusted = foundUser.isAdmin || foundUser.isTrusted;
-      const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin, isTrusted: isTrusted };
-      localStorage.setItem('user', JSON.stringify(userData));
+      const userData = { 
+        username: foundUser.username, 
+        isAdmin: foundUser.isAdmin, 
+        isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+      };
+      Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
       setUser(userData);
       return true;
     }
@@ -94,7 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (success) {
             const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
-            localStorage.setItem('user', JSON.stringify(userData));
+            Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
             setUser(userData);
             return { success: true, message: "注册成功！" };
         } else {
@@ -109,7 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 
   const logout = () => {
-    localStorage.removeItem('user');
+    Cookies.remove(USER_COOKIE_KEY);
     setUser(null);
   };
 
