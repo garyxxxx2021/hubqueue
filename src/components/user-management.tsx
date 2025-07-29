@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { ShieldCheck, User as UserIcon, ShieldX, Loader2 } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Loader2 } from 'lucide-react';
 
 export default function UserManagement() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -112,7 +112,7 @@ export default function UserManagement() {
               <TableRow>
                 <TableHead>用户</TableHead>
                 <TableHead>角色</TableHead>
-                <TableHead className="text-right">可信</TableHead>
+                <TableHead className="text-right">可信状态</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -121,7 +121,7 @@ export default function UserManagement() {
                   <TableCell className="font-medium">{u.username}</TableCell>
                   <TableCell>
                     {u.isAdmin ? (
-                        <span className="flex items-center gap-2 text-primary">
+                        <span className="flex items-center gap-2 font-semibold text-primary">
                             <ShieldCheck className="h-4 w-4" /> 管理员
                         </span>
                     ) : (
@@ -132,7 +132,7 @@ export default function UserManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                        <span className={`text-sm ${u.isTrusted ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <span className={`text-sm font-medium ${u.isTrusted ? 'text-primary' : 'text-muted-foreground'}`}>
                            {u.isTrusted ? '可信' : '不可信'}
                         </span>
                         <Switch
