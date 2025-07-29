@@ -39,7 +39,7 @@ const statusConfig = {
 
 export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: ImageCardProps) {
   const { user } = useAuth();
-  const { id, name, url, status, claimedBy, isUploading } = image;
+  const { id, name, url, status, claimedBy, uploadedBy, isUploading } = image;
   const config = statusConfig[status];
   const [isImageLoading, setIsImageLoading] = useState(true);
 
@@ -73,13 +73,8 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
   
   const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === user?.username;
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
-  const isAdmin = user?.isAdmin || false;
-  const isTrusted = user?.isTrusted || false;
-
-  // Admin can delete anything.
-  // Trusted users can delete items that are not claimed.
-  const canUserDelete = isAdmin || (isTrusted && status === 'uploaded');
-
+  
+  const canUserDelete = user?.isAdmin || user?.username === uploadedBy;
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
@@ -103,18 +98,26 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
             <h3 className="font-semibold text-sm leading-snug break-all text-foreground">{name}</h3>
             <Badge variant={config.variant} className="flex-shrink-0">{config.label}</Badge>
         </div>
-        {status === 'in-progress' && claimedBy && (
-            <div className="flex items-center text-xs text-muted-foreground mb-4">
-                <User className="w-3 h-3 mr-1.5"/>
-                认领者：{claimedBy === user?.username ? '您' : claimedBy}
+        
+        <div className="flex items-center text-xs text-muted-foreground mb-4 gap-4">
+             {status === 'in-progress' && claimedBy && (
+                <div className="flex items-center">
+                    <User className="w-3 h-3 mr-1.5"/>
+                    认领者：{claimedBy === user?.username ? '您' : claimedBy}
+                </div>
+            )}
+            <div className="flex items-center">
+                <User className="w-3 h-3 mr-1.5" />
+                上传者: {uploadedBy === user?.username ? '您' : uploadedBy}
             </div>
-        )}
+        </div>
+
         <div className="flex-grow"></div>
         <CardFooter className="p-0 mt-4">
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
                     {status === 'uploaded' && (
-                        isTrusted ? (
+                        user?.isTrusted ? (
                           <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                               <GitBranch className="mr-2 h-4 w-4"/>
                               认领任务

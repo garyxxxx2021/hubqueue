@@ -28,8 +28,10 @@ export default function Dashboard() {
     }
     try {
       const imageList = await getImageList();
-      if (JSON.stringify(imageList) !== JSON.stringify(imagesRef.current)) {
-        setImages(imageList);
+      // Simple migration for old data that doesn't have `uploadedBy`
+      const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
+      if (JSON.stringify(migratedImageList) !== JSON.stringify(imagesRef.current)) {
+        setImages(migratedImageList);
       }
     } catch (error: any) {
       if (showSyncingIndicator) {
@@ -86,7 +88,7 @@ export default function Dashboard() {
         const { success, error } = await saveImageList(updatedImages);
         
         if (success) {
-          setImages(updatedImages);
+          setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
           toast({
             title: "任务已认领",
             description: `您已认领 ${imageToClaim.name}。`
@@ -100,7 +102,7 @@ export default function Dashboard() {
             title: "操作失败",
             description: "该任务可能已被其他用户认领。"
         });
-        setImages(currentImages);
+        await fetchImages(false);
       }
     } catch (error: any) {
        toast({
@@ -129,7 +131,7 @@ export default function Dashboard() {
         const { success, error } = await saveImageList(updatedImages);
 
         if (success) {
-          setImages(updatedImages);
+          setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
           toast({
             title: "任务已放回",
             description: `${imageToUnclaim.name} 已返回队列。`,
@@ -143,7 +145,7 @@ export default function Dashboard() {
           title: "操作失败",
           description: "您无法放回不属于您的任务。",
         });
-        setImages(currentImages);
+        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
       }
     } catch (error: any) {
       toast({
@@ -158,6 +160,14 @@ export default function Dashboard() {
   };
 
   const handleImageUploaded = async (uploadedImage: { name: string, webdavPath: string }) => {
+    if (!user) {
+        toast({
+            variant: "destructive",
+            title: "认证错误",
+            description: "您必须登录才能上传图片。",
+        });
+        return;
+    }
     setIsSyncing(true);
     try {
         const newImage: ImageFile = {
@@ -166,6 +176,7 @@ export default function Dashboard() {
             webdavPath: uploadedImage.webdavPath,
             url: `/api/image?path=${encodeURIComponent(uploadedImage.webdavPath)}`,
             status: 'uploaded',
+            uploadedBy: user.username,
             createdAt: Date.now(),
         };
 
@@ -174,7 +185,7 @@ export default function Dashboard() {
 
         const { success, error } = await saveImageList(updatedImages);
         if (success) {
-            setImages(updatedImages);
+            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
             toast({
                 title: "上传成功",
                 description: `${newImage.name} 已被添加到队列。`
@@ -211,7 +222,7 @@ export default function Dashboard() {
 
         const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
         if(saveSuccess) {
-            setImages(updatedImages);
+            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
             toast({
                 title: "图片已删除",
                 description: `${imageToDelete.name} 已被移除。`,
