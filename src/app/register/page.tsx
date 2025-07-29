@@ -55,7 +55,7 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
           </div>
           <CardTitle>创建账户</CardTitle>
-          <CardDescription>第一个注册的用户将成为管理员。</CardDescription>
+          <CardDescription>输入您的凭据以开始使用。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
