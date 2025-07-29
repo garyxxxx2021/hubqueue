@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion, Undo2, ChevronsRight } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import { useAuth } from '@/context/AuthContext';
 interface ImageCardProps {
   image: ImageFile;
   onClaim: (id: string) => void;
+  onUnclaim: (id: string) => void;
   onUpload: (id: string) => void; 
   onDelete: (id: string) => void;
 }
@@ -36,7 +37,7 @@ const statusConfig = {
 } as const;
 
 
-export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps) {
+export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: ImageCardProps) {
   const { user } = useAuth();
   const { id, name, url, status, claimedBy, isUploading } = image;
   const config = statusConfig[status];
@@ -73,7 +74,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
   const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === user?.username;
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
   const isAdmin = user?.isAdmin || false;
-  const canUserDelete = isAdmin || status === 'uploaded';
+  const canUserDelete = isAdmin;
   const isTrusted = user?.isTrusted || false;
 
 
@@ -123,14 +124,18 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                         )
                     )}
                     {isClaimedByCurrentUser && (
-                         <div className="w-full flex items-center gap-2">
-                            <Button onClick={handleDownload} size="sm" variant="secondary" className="flex-1">
+                         <div className="w-full grid grid-cols-3 gap-2">
+                            <Button onClick={handleDownload} size="sm" variant="secondary">
                                 <Download className="mr-2 h-4 w-4" />
                                 下载
                             </Button>
+                            <Button onClick={() => onUnclaim(id)} size="sm" variant="outline">
+                               <Undo2 className="mr-2 h-4 w-4" />
+                                放回
+                            </Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button size="sm" className="flex-1">
+                                    <Button size="sm">
                                         <PartyPopper className="mr-2 h-4 w-4" />
                                         完成
                                     </Button>
@@ -152,8 +157,8 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                     )}
                     {isClaimedByOther && (
                         <Button size="sm" className="w-full" disabled>
-                            <Ban className="mr-2 h-4 w-4"/>
-                            已被他人认领
+                            <ChevronsRight className="mr-2 h-4 w-4"/>
+                            正在处理
                         </Button>
                     )}
                      {status === 'queued' && (
@@ -173,35 +178,37 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                     )}
                 </div>
                 
-                <AlertDialog>
-                  <TooltipProvider>
-                      <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={!canUserDelete}>
-                                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                  <span className="sr-only">删除</span>
-                              </Button>
-                            </AlertDialogTrigger>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                              <p>从队列中移除</p>
-                          </TooltipContent>
-                      </Tooltip>
-                  </TooltipProvider>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>您确定吗？</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        此操作无法撤销。这将从服务器上永久删除图片 <span className="font-semibold">{name}</span>。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDelete(id)}>继续</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {canUserDelete && (
+                  <AlertDialog>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
+                                    <span className="sr-only">删除</span>
+                                </Button>
+                              </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>从队列中移除</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>您确定吗？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          此操作无法撤销。这将从服务器上永久删除图片 <span className="font-semibold">{name}</span>。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(id)}>继续</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
             </div>
         </CardFooter>
       </div>

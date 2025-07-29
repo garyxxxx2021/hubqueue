@@ -5,12 +5,13 @@ import { FileQuestion, RefreshCw } from 'lucide-react';
 interface ImageQueueProps {
   images: ImageFile[];
   onClaim: (id: string) => void;
+  onUnclaim: (id: string) => void;
   onUpload: (id: string) => void;
   onDelete: (id: string) => void;
   isSyncing: boolean;
 }
 
-export function ImageQueue({ images, onClaim, onUpload, onDelete, isSyncing }: ImageQueueProps) {
+export function ImageQueue({ images, onClaim, onUnclaim, onUpload, onDelete, isSyncing }: ImageQueueProps) {
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
@@ -31,6 +32,7 @@ export function ImageQueue({ images, onClaim, onUpload, onDelete, isSyncing }: I
               key={image.id}
               image={image}
               onClaim={onClaim}
+              onUnclaim={onUnclaim}
               onUpload={onUpload}
               onDelete={onDelete}
             />

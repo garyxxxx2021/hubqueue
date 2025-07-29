@@ -114,6 +114,49 @@ export default function Dashboard() {
     }
   };
   
+  const handleUnclaimImage = async (id: string) => {
+    if (!user) return;
+    setIsSyncing(true);
+    try {
+      const currentImages = await getImageList();
+      const imageToUnclaim = currentImages.find(img => img.id === id);
+
+      if (imageToUnclaim && imageToUnclaim.claimedBy === user.username) {
+        const updatedImages = currentImages.map(img =>
+          img.id === id ? { ...img, status: 'uploaded', claimedBy: undefined } : img
+        );
+
+        const { success, error } = await saveImageList(updatedImages);
+
+        if (success) {
+          setImages(updatedImages);
+          toast({
+            title: "任务已放回",
+            description: `${imageToUnclaim.name} 已返回队列。`,
+          });
+        } else {
+          throw new Error(error || "无法保存更新后的图片列表。");
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "操作失败",
+          description: "您无法放回不属于您的任务。",
+        });
+        setImages(currentImages);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "同步错误",
+        description: error.message || "无法放回任务。",
+      });
+      await fetchImages(false);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleImageUploaded = async (uploadedImage: { name: string, webdavPath: string }) => {
     setIsSyncing(true);
     try {
@@ -220,6 +263,7 @@ export default function Dashboard() {
         <ImageQueue
           images={images}
           onClaim={handleClaimImage}
+          onUnclaim={handleUnclaimImage}
           onUpload={handleUploadFromQueue}
           onDelete={handleDeleteImage}
           isSyncing={isSyncing}
