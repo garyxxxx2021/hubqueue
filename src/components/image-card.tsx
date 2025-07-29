@@ -7,6 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 interface ImageCardProps {
   image: ImageFile;
@@ -32,6 +44,8 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
   };
 
   const handleRetryUpload = () => {
+    // This functionality is now largely deprecated as uploads are instant.
+    // Kept for potential "error" states during initial upload if that logic is added.
     onUpload(id); 
   }
 
@@ -44,7 +58,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
             src={url} 
             alt={name} 
             fill 
-            className="object-cover" 
+            className={`object-cover transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
             data-ai-hint={getAiHint(name)} 
             unoptimized
             onLoad={() => setIsImageLoading(false)}
@@ -96,19 +110,36 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                     )}
                 </div>
                 
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button onClick={() => onDelete(id)} variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                <span className="sr-only">Delete</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>Remove from queue</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                <AlertDialog>
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
+                                  <span className="sr-only">Delete</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>Remove from queue</p>
+                          </TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the
+                        image <span className="font-semibold">{name}</span> from the queue and the server.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDelete(id)}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </div>
         </CardFooter>
       </div>

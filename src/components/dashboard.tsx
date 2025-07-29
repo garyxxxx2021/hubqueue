@@ -1,103 +1,104 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
+import { Syncing } from 'lucide-react';
+
+const POLLING_INTERVAL = 5000; // 5 seconds
 
 export default function Dashboard() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
+  
+  // Ref to store the latest version of images to prevent stale state in closures
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
 
-  // Fetch initial list from WebDAV
-  useEffect(() => {
-    const fetchImages = async () => {
-      setIsLoading(true);
-      try {
-        const imageList = await getImageList();
+  const fetchImages = useCallback(async (showSyncingIndicator = false) => {
+    if (showSyncingIndicator) {
+      setIsSyncing(true);
+    }
+    try {
+      const imageList = await getImageList();
+      // Only update if the fetched list is different from the current one
+      if (JSON.stringify(imageList) !== JSON.stringify(imagesRef.current)) {
         setImages(imageList);
-      } catch (error: any) {
+      }
+    } catch (error: any) {
+      // Don't show toast on background polls
+      if (!showSyncingIndicator) {
         toast({
           variant: "destructive",
           title: "Failed to load image list",
           description: error.message || "Could not connect to WebDAV.",
         });
-      } finally {
-        setIsLoading(false);
       }
-    };
-    fetchImages();
+      console.error("Polling failed:", error);
+    } finally {
+      if (showSyncingIndicator) {
+        setIsSyncing(false);
+      }
+    }
   }, [toast]);
 
-  // Sync state back to WebDAV
+
+  // Initial fetch
   useEffect(() => {
-    // We don't sync on the initial load.
-    if (isLoading) {
-      return;
+    const initialFetch = async () => {
+      setIsLoading(true);
+      await fetchImages(false);
+      setIsLoading(false);
+    };
+    initialFetch();
+  }, [fetchImages]);
+  
+  // Set up polling
+  useEffect(() => {
+    const interval = setInterval(() => {
+        fetchImages(true);
+    }, POLLING_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchImages]);
+
+  const updateAndSave = async (updatedImages: ImageFile[], successMessage?: {title: string, description: string}) => {
+    setImages(updatedImages); // Optimistic update
+    const { success, error } = await saveImageList(updatedImages);
+    if (success) {
+      if(successMessage) {
+        toast(successMessage);
+      }
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: error || "Could not save the image list to WebDAV.",
+      });
+      // On failure, refetch to get the ground truth from the server
+      await fetchImages(true);
     }
-    const syncImages = async () => {
-      setIsSyncing(true);
-      const { success, error } = await saveImageList(images);
-      if (!success) {
-        toast({
-          variant: "destructive",
-          title: "Sync Failed",
-          description: error || "Could not save the image list to WebDAV.",
-        });
-      }
-      setIsSyncing(false);
-    };
-
-    // Debounce the sync to avoid too many requests
-    const handler = setTimeout(() => {
-        syncImages();
-    }, 1000);
-
-    return () => {
-        clearTimeout(handler);
-    };
-  }, [images, isLoading, toast]);
-
-
-  const handleUpload = async (id: string) => {
-      const imageToUpload = images.find(img => img.id === id);
-      if (!imageToUpload) return;
-  
-      updateImage(id, { isUploading: true, status: 'in-progress' });
-  
-      try {
-          console.warn("Re-upload functionality needs access to original file data, which is not currently stored. Simulating success.");
-          
-          updateImage(id, { status: 'uploaded', isUploading: false });
-          toast({
-            title: "Re-upload Successful",
-            description: `${imageToUpload.name} has been marked as uploaded.`,
-          });
-  
-      } catch (error: any) {
-          console.error("Upload failed", error);
-          updateImage(id, { status: 'error', isUploading: false });
-          toast({
-              variant: "destructive",
-              title: "Upload Failed",
-              description: error.message || `Could not re-upload ${imageToUpload.name}.`,
-          });
-      }
   };
 
+
   const updateImage = (id: string, updates: Partial<ImageFile>) => {
-    setImages(prev => prev.map(img => img.id === id ? { ...img, ...updates } : img));
+    const updatedImages = images.map(img => img.id === id ? { ...img, ...updates } : img)
+    updateAndSave(updatedImages);
   };
 
   const handleClaimImage = (id: string) => {
     const image = images.find(img => img.id === id);
     if(image && image.status === 'uploaded'){
-        updateImage(id, { status: 'in-progress', claimedBy: 'You' });
+        const updatedImages = images.map(img => img.id === id ? { ...img, status: 'in-progress', claimedBy: 'You' } : img);
+        updateAndSave(updatedImages, {
+          title: "Task Claimed",
+          description: `You have claimed ${image.name}.`
+        });
     }
   };
   
@@ -108,8 +109,13 @@ export default function Dashboard() {
       webdavPath: uploadedImage.webdavPath,
       url: `/api/image?path=${encodeURIComponent(uploadedImage.webdavPath)}`,
       status: 'uploaded',
+      createdAt: Date.now(),
     };
-    setImages(prev => [newImage, ...prev]);
+    const updatedImages = [newImage, ...images];
+    updateAndSave(updatedImages, {
+      title: "Upload Successful",
+      description: `${newImage.name} has been added to the queue.`
+    });
   };
   
   const handleDeleteImage = async (id: string) => {
@@ -117,9 +123,24 @@ export default function Dashboard() {
     if (!imageToDelete) return;
 
     // Optimistically remove from UI
-    setImages(prev => prev.filter(img => img.id !== id));
+    const updatedImages = images.filter(img => img.id !== id);
+    setImages(updatedImages);
 
-    const { success, error } = await deleteWebdavFile(imageToDelete.webdavPath);
+    // Delete from WebDAV storage
+    const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
+    if (!deleteSuccess) {
+       toast({
+        variant: "destructive",
+        title: "Deletion Failed on Storage",
+        description: deleteError || `Could not delete ${imageToDelete.name} from WebDAV storage.`,
+      });
+      // Revert UI change and show error
+      await fetchImages(true);
+      return;
+    }
+
+    // Save the updated list
+    const { success, error } = await saveImageList(updatedImages);
 
     if (success) {
       toast({
@@ -128,18 +149,17 @@ export default function Dashboard() {
       });
     } else {
       // Revert UI change and show error
-      setImages(prev => [imageToDelete, ...prev].sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0)));
       toast({
         variant: "destructive",
         title: "Deletion Failed",
         description: error || `Could not delete ${imageToDelete.name} from WebDAV.`,
       });
+      await fetchImages(true);
     }
   };
   
   const handleUploadFromQueue = (id: string) => {
       console.log("This action is deprecated as images are uploaded before being queued.", id)
-      handleUpload(id);
   }
 
   return (
@@ -164,11 +184,12 @@ export default function Dashboard() {
             </div>
         </div>
       ) : (
-        <ImageQueue 
+        <ImageQueue
           images={images}
           onClaim={handleClaimImage}
           onUpload={handleUploadFromQueue}
           onDelete={handleDeleteImage}
+          isSyncing={isSyncing}
         />
       )}
     </div>

@@ -44,10 +44,6 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
             const result = await uploadToWebdav(file.name, dataUrl);
 
             if (result.success && result.path) {
-                toast({
-                    title: "Upload Successful",
-                    description: `${file.name} has been uploaded.`,
-                });
                 onImageUploaded({ name: file.name, webdavPath: result.path });
             } else {
                 throw new Error(result.error || 'Upload failed due to an unknown error.');
@@ -61,7 +57,6 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
             });
         } finally {
             setIsUploading(false);
-            // Reset file input to allow uploading the same file again
             if(fileInputRef.current) {
               fileInputRef.current.value = '';
             }
