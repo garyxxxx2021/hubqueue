@@ -13,7 +13,7 @@ import { Skeleton } from './ui/skeleton';
 import { ShieldCheck, User as UserIcon, Loader2 } from 'lucide-react';
 
 export default function UserManagement() {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading, updateUserStatus } = useAuth();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -25,8 +25,7 @@ export default function UserManagement() {
     }
   }, [user, isAuthLoading, router]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const fetchUsers = async () => {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
@@ -43,29 +42,42 @@ export default function UserManagement() {
         }
       }
     };
+    
+  useEffect(() => {
     fetchUsers();
-  }, [user, toast]);
+  }, [user]);
   
   const handleTrustToggle = async (username: string, isTrusted: boolean) => {
+    // Optimistically update UI
+    const originalUsers = [...users];
     const updatedUsers = users.map(u => 
         u.username === username ? { ...u, isTrusted } : u
     );
     setUsers(updatedUsers);
 
     const { success, error } = await saveUsers(updatedUsers);
+    
     if (!success) {
         toast({
             variant: 'destructive',
             title: '更新失败',
             description: error || '无法保存用户权限更改。',
         });
-        const originalUsers = await getUsers();
+        // Revert UI on failure
         setUsers(originalUsers);
     } else {
          toast({
             title: '更新成功',
             description: `用户 ${username} 的权限已更新。`,
         });
+        
+        // If the admin is updating themselves, refresh their auth context
+        if (user && user.username === username) {
+           await updateUserStatus(username);
+        }
+        
+        // Refresh the user list from server to be sure
+        await fetchUsers();
     }
   };
 

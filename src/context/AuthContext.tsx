@@ -17,6 +17,7 @@ interface AuthContextType {
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
+  updateUserStatus: (username: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +53,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, []);
 
+  const updateUserStatus = async (username: string) => {
+    if (user && user.username === username) {
+      const users = await getUsers();
+      const foundUser = users.find(u => u.username === username);
+      if (foundUser) {
+        const userData = { 
+          username: foundUser.username, 
+          isAdmin: foundUser.isAdmin, 
+          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+        };
+        Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
+        setUser(userData);
+      }
+    }
+  };
+  
   const login = async (username: string, password_input: string): Promise<boolean> => {
     const users = await getUsers();
     const passwordHash = await hashPassword(password_input);
@@ -118,7 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
-  const value = { user, login, logout, register, isLoading };
+  const value = { user, login, logout, register, isLoading, updateUserStatus };
 
   return (
     <AuthContext.Provider value={value}>
