@@ -48,6 +48,7 @@ export default function Dashboard() {
     updateImage(id, { isUploading: true });
 
     try {
+        // Convert placeholder URL to actual image data before uploading
         const dataUrl = await urlToDataUrl(imageToUpload.url);
 
         const result = await uploadToWebdav(imageToUpload.name, dataUrl);
@@ -59,16 +60,18 @@ export default function Dashboard() {
               description: `${imageToUpload.name} has been uploaded.`,
             });
         } else {
-            throw new Error('Upload failed.');
+            // The service throws an error on failure, so this path might not be hit,
+            // but it's good practice for handling potential non-throwing failures.
+            throw new Error(result.error || 'Upload failed due to an unknown error.');
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Upload failed", error);
         updateImage(id, { status: 'error', isUploading: false });
         toast({
             variant: "destructive",
             title: "Upload Failed",
-            description: `Could not upload ${imageToUpload.name}. Please check the console for details.`,
+            description: error.message || `Could not upload ${imageToUpload.name}. Please check the console for details.`,
         });
     }
   };

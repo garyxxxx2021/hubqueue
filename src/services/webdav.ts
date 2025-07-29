@@ -3,9 +3,11 @@
 import { createClient } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
 
-export async function uploadToWebdav(fileName: string, dataUrl: string) {
+export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
-    throw new Error('WebDAV configuration is incomplete.');
+    const errorMessage = 'WebDAV configuration is incomplete. Please check your .env file.';
+    console.error(errorMessage);
+    return { success: false, error: errorMessage };
   }
 
   const client = createClient(webdavConfig.url, {
@@ -29,8 +31,9 @@ export async function uploadToWebdav(fileName: string, dataUrl: string) {
     } else {
       throw new Error('WebDAV server returned an error on upload.');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to upload to WebDAV', error);
-    throw error;
+    // Rethrow a more user-friendly error or return a structured error response
+    return { success: false, error: error.message || 'An unknown error occurred during upload.' };
   }
 }
