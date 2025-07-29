@@ -1,4 +1,3 @@
-
 import type { ImageFile } from '@/types';
 import { ImageCard } from './image-card';
 import { FileQuestion, RefreshCw } from 'lucide-react';
@@ -15,12 +14,12 @@ export function ImageQueue({ images, onClaim, onUpload, onDelete, isSyncing }: I
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Image Queue</h2>
+        <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isSyncing && (
                 <>
                     <RefreshCw className="w-4 h-4 animate-spin" /> 
-                    <span>Syncing...</span>
+                    <span>同步中...</span>
                 </>
             )}
         </div>
@@ -40,8 +39,8 @@ export function ImageQueue({ images, onClaim, onUpload, onDelete, isSyncing }: I
       ) : (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-border rounded-lg text-center bg-card">
           <FileQuestion className="w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold">Queue is empty</h3>
-          <p className="text-muted-foreground mt-2">Upload an image to get started.</p>
+          <h3 className="text-xl font-semibold">队列是空的</h3>
+          <p className="text-muted-foreground mt-2">上传一张图片开始吧。</p>
         </div>
       )}
     </div>

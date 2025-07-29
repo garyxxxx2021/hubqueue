@@ -27,8 +27,8 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
     if (!file.type.startsWith('image/')) {
         toast({
             variant: "destructive",
-            title: "Invalid File Type",
-            description: "Please select an image file.",
+            title: "无效的文件类型",
+            description: "请选择一个图片文件。",
         });
         return;
     }
@@ -46,14 +46,14 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
             if (result.success && result.path) {
                 onImageUploaded({ name: file.name, webdavPath: result.path });
             } else {
-                throw new Error(result.error || 'Upload failed due to an unknown error.');
+                throw new Error(result.error || '上传失败，发生未知错误。');
             }
         } catch (error: any) {
             console.error("Upload failed", error);
             toast({
                 variant: "destructive",
-                title: "Upload Failed",
-                description: error.message || `Could not upload ${file.name}.`,
+                title: "上传失败",
+                description: error.message || `无法上传 ${file.name}。`,
             });
         } finally {
             setIsUploading(false);
@@ -64,14 +64,14 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
       };
       reader.onerror = (error) => {
         setIsUploading(false);
-        throw new Error('Could not read the file.');
+        throw new Error('无法读取文件。');
       }
     } catch (error: any) {
       console.error("File processing failed", error);
       toast({
           variant: "destructive",
-          title: "Error",
-          description: error.message || `Could not process ${file.name}.`,
+          title: "错误",
+          description: error.message || `无法处理 ${file.name}。`,
       });
       setIsUploading(false);
     }
@@ -80,8 +80,8 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
   return (
     <Card className="mb-8 shadow-sm">
       <CardHeader>
-        <CardTitle>Upload New Image</CardTitle>
-        <CardDescription>Select an image to upload it to WebDAV and add it to the queue.</CardDescription>
+        <CardTitle>上传新图片</CardTitle>
+        <CardDescription>选择一张图片上传到 WebDAV 并将其添加到队列中。</CardDescription>
       </CardHeader>
       <CardContent>
         <input
@@ -103,14 +103,14 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
           {isUploading ? (
             <>
               <Loader2 className="w-12 h-12 text-muted-foreground mb-4 animate-spin" />
-              <p className="font-semibold mb-1">Uploading...</p>
-              <p className="text-muted-foreground text-sm">Please wait while the file is being uploaded.</p>
+              <p className="font-semibold mb-1">上传中...</p>
+              <p className="text-muted-foreground text-sm">请稍候，文件正在上传。</p>
             </>
           ) : (
             <>
               <UploadCloud className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="font-semibold mb-1">Click to upload an image</p>
-              <p className="text-muted-foreground text-sm">The image will be uploaded and then added to the queue.</p>
+              <p className="font-semibold mb-1">点击上传图片</p>
+              <p className="text-muted-foreground text-sm">图片将被上传并添加到队列中。</p>
             </>
           )}
         </div>

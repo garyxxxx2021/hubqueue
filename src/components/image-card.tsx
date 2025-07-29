@@ -1,4 +1,3 @@
-
 import Image from 'next/image';
 import { useState } from 'react';
 import type { ImageFile } from '@/types';
@@ -30,10 +29,10 @@ interface ImageCardProps {
 }
 
 const statusConfig = {
-  queued: { variant: 'secondary', label: 'Queued' },
-  'in-progress': { variant: 'default', label: 'In Progress' },
-  uploaded: { variant: 'outline', label: 'Uploaded' },
-  error: { variant: 'destructive', label: 'Error' },
+  queued: { variant: 'secondary', label: '排队中' },
+  'in-progress': { variant: 'default', label: '处理中' },
+  uploaded: { variant: 'outline', label: '已上传' },
+  error: { variant: 'destructive', label: '错误' },
 } as const;
 
 
@@ -102,7 +101,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
         {status === 'in-progress' && claimedBy && (
             <div className="flex items-center text-xs text-muted-foreground mb-4">
                 <User className="w-3 h-3 mr-1.5"/>
-                Claimed by {claimedBy === user?.username ? 'you' : claimedBy}
+                认领者：{claimedBy === user?.username ? '您' : claimedBy}
             </div>
         )}
         <div className="flex-grow"></div>
@@ -112,32 +111,32 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                     {status === 'uploaded' && (
                         <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                             <GitBranch className="mr-2 h-4 w-4"/>
-                            Claim Task
+                            认领任务
                         </Button>
                     )}
                     {isClaimedByCurrentUser && (
                          <div className="w-full flex items-center gap-2">
                             <Button onClick={handleDownload} size="sm" variant="secondary" className="flex-1">
                                 <Download className="mr-2 h-4 w-4" />
-                                Download
+                                下载
                             </Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button size="sm" className="flex-1">
                                         <PartyPopper className="mr-2 h-4 w-4" />
-                                        Complete
+                                        完成
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Mark as Complete?</AlertDialogTitle>
+                                    <AlertDialogTitle>标记为完成？</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                    This will remove the image <span className="font-semibold">{name}</span> from the queue. Make sure you have finished your work with it.
+                                    这将从队列中移除图片 <span className="font-semibold">{name}</span>。请确保您已完成相关工作。
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(id)}>Confirm</AlertDialogAction>
+                                    <AlertDialogCancel>取消</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(id)}>确认</AlertDialogAction>
                                 </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -146,12 +145,12 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                     {isClaimedByOther && (
                         <Button size="sm" className="w-full" disabled>
                             <Ban className="mr-2 h-4 w-4"/>
-                            Claimed by other
+                            已被他人认领
                         </Button>
                     )}
                      {status === 'queued' && (
                         <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">
-                           Awaiting Upload
+                           等待上传
                         </div>
                     )}
                     {status === 'error' && (
@@ -161,7 +160,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                             ) : (
                                 <RefreshCcw className="mr-2 h-4 w-4"/>
                             )}
-                            {isUploading ? 'Retrying...' : 'Retry Upload'}
+                            {isUploading ? '重试中...' : '重试上传'}
                         </Button>
                     )}
                 </div>
@@ -173,26 +172,25 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={!canUserDelete}>
                                   <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                  <span className="sr-only">Delete</span>
+                                  <span className="sr-only">删除</span>
                               </Button>
                             </AlertDialogTrigger>
                           </TooltipTrigger>
                           <TooltipContent>
-                              <p>Remove from queue</p>
+                              <p>从队列中移除</p>
                           </TooltipContent>
                       </Tooltip>
                   </TooltipProvider>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogTitle>您确定吗？</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the
-                        image <span className="font-semibold">{name}</span> from the server.
+                        此操作无法撤销。这将从服务器上永久删除图片 <span className="font-semibold">{name}</span>。
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDelete(id)}>Continue</AlertDialogAction>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDelete(id)}>继续</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

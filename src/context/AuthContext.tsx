@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -74,7 +73,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const register = async (username: string, password_input: string): Promise<{ success: boolean; message: string }> => {
     if (!username || !password_input) {
-        return { success: false, message: "Username and password cannot be empty." };
+        return { success: false, message: "用户名和密码不能为空。" };
     }
     
     setIsLoading(true);
@@ -82,7 +81,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const users = await getUsers();
 
         if (users.find(u => u.username === username)) {
-            return { success: false, message: "Username already exists." };
+            return { success: false, message: "该用户名已存在。" };
         }
 
         const isAdmin = users.length === 0; // First user is admin
@@ -101,12 +100,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const userData = { username: newUser.username, isAdmin: newUser.isAdmin };
             localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);
-            return { success: true, message: "Registration successful!" };
+            return { success: true, message: "注册成功！" };
         } else {
-            return { success: false, message: error || "Failed to save user data." };
+            return { success: false, message: error || "无法保存用户数据。" };
         }
     } catch (error: any) {
-        return { success: false, message: error.message || "An unexpected error occurred." };
+        return { success: false, message: error.message || "发生未知错误。" };
     } finally {
         setIsLoading(false);
     }
@@ -131,7 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth 必须在 AuthProvider 中使用');
   }
   return context;
 }

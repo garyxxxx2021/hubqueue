@@ -27,8 +27,8 @@ export default function LoginPage() {
     } else {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid username or password.",
+        title: "登录失败",
+        description: "无效的用户名或密码。",
       });
     }
     setIsLoading(false);
@@ -50,31 +50,31 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">GitShare</h1>
             </div>
-          <CardTitle>Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
+          <CardTitle>欢迎回来</CardTitle>
+          <CardDescription>输入您的凭据以访问仪表板。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">用户名</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter your username"
+              placeholder="输入您的用户名"
               required
               disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">密码</Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter your password"
+              placeholder="输入您的密码"
               required
               disabled={isLoading}
             />
@@ -83,12 +83,12 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col gap-4">
           <Button onClick={handleLogin} className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            登录
           </Button>
            <p className="text-sm text-center text-muted-foreground">
-              Don&apos;t have an account?{' '}
+              还没有账户？{' '}
               <Link href="/register" className="font-semibold text-primary hover:underline">
-                Register
+                注册
               </Link>
             </p>
         </CardFooter>

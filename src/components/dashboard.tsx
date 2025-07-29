@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -36,8 +35,8 @@ export default function Dashboard() {
       if (showSyncingIndicator) {
           toast({
             variant: "destructive",
-            title: "Failed to load image list",
-            description: error.message || "Could not connect to WebDAV.",
+            title: "无法加载图片列表",
+            description: error.message || "无法连接到 WebDAV。",
           });
       }
       console.error("Polling failed:", error);
@@ -68,8 +67,8 @@ export default function Dashboard() {
     if (!user) {
         toast({
             variant: "destructive",
-            title: "Authentication Error",
-            description: "You must be logged in to claim a task.",
+            title: "认证错误",
+            description: "您必须登录才能认领任务。",
         });
         return;
     }
@@ -89,25 +88,25 @@ export default function Dashboard() {
         if (success) {
           setImages(updatedImages);
           toast({
-            title: "Task Claimed",
-            description: `You have claimed ${imageToClaim.name}.`
+            title: "任务已认领",
+            description: `您已认领 ${imageToClaim.name}。`
           });
         } else {
-          throw new Error(error || "Failed to save updated image list.");
+          throw new Error(error || "无法保存更新后的图片列表。");
         }
       } else {
          toast({
             variant: "destructive",
-            title: "Action Failed",
-            description: "This task may have already been claimed by another user."
+            title: "操作失败",
+            description: "该任务可能已被其他用户认领。"
         });
         setImages(currentImages);
       }
     } catch (error: any) {
        toast({
         variant: "destructive",
-        title: "Sync Error",
-        description: error.message || "Could not claim the task.",
+        title: "同步错误",
+        description: error.message || "无法认领任务。",
       });
       await fetchImages(false);
     } finally {
@@ -134,16 +133,16 @@ export default function Dashboard() {
         if (success) {
             setImages(updatedImages);
             toast({
-                title: "Upload Successful",
-                description: `${newImage.name} has been added to the queue.`
+                title: "上传成功",
+                description: `${newImage.name} 已被添加到队列。`
             });
         } else {
-            throw new Error(error || 'Could not save the image list to WebDAV.');
+            throw new Error(error || '无法将图片列表保存到 WebDAV。');
         }
     } catch (error: any) {
         toast({
             variant: "destructive",
-            title: "Sync Failed",
+            title: "同步失败",
             description: error.message,
         });
         await fetchImages(false);
@@ -161,7 +160,7 @@ export default function Dashboard() {
     try {
         const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
         if (!deleteSuccess) {
-            throw new Error(deleteError || `Could not delete file from storage.`);
+            throw new Error(deleteError || `无法从存储中删除文件。`);
         }
 
         const currentImages = await getImageList();
@@ -171,16 +170,16 @@ export default function Dashboard() {
         if(saveSuccess) {
             setImages(updatedImages);
             toast({
-                title: "Image Deleted",
-                description: `${imageToDelete.name} has been removed.`,
+                title: "图片已删除",
+                description: `${imageToDelete.name} 已被移除。`,
             });
         } else {
-            throw new Error(saveError || "Could not update the image list.");
+            throw new Error(saveError || "无法更新图片列表。");
         }
     } catch (error: any) {
          toast({
             variant: "destructive",
-            title: "Deletion Failed",
+            title: "删除失败",
             description: error.message,
         });
         await fetchImages(false);
@@ -190,7 +189,7 @@ export default function Dashboard() {
   };
   
   const handleUploadFromQueue = (id: string) => {
-      console.log("This action is deprecated as images are uploaded before being queued.", id)
+      console.log("此操作已弃用，因为图片在加入队列前就已上传。", id)
   }
 
   return (
@@ -202,7 +201,7 @@ export default function Dashboard() {
                 <Skeleton className="h-8 w-48" />
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Loading...</span>
+                    <span>加载中...</span>
                 </div>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

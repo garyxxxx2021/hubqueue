@@ -25,13 +25,13 @@ export default function RegisterPage() {
     if (result.success) {
       router.push('/dashboard');
       toast({
-        title: "Registration Successful",
-        description: "Welcome to GitShare!",
+        title: "注册成功",
+        description: "欢迎来到 GitShare！",
       });
     } else {
       toast({
         variant: "destructive",
-        title: "Registration Failed",
+        title: "注册失败",
         description: result.message,
       });
     }
@@ -54,31 +54,31 @@ export default function RegisterPage() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">GitShare</h1>
           </div>
-          <CardTitle>Create an Account</CardTitle>
-          <CardDescription>The first registered user will become an administrator.</CardDescription>
+          <CardTitle>创建账户</CardTitle>
+          <CardDescription>第一个注册的用户将成为管理员。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">用户名</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Choose a username"
+              placeholder="选择一个用户名"
               required
               disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">密码</Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Choose a password"
+              placeholder="选择一个密码"
               required
               disabled={isLoading}
             />
@@ -87,12 +87,12 @@ export default function RegisterPage() {
         <CardFooter className="flex flex-col gap-4">
           <Button onClick={handleRegister} className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Register
+            注册
           </Button>
           <p className="text-sm text-center text-muted-foreground">
-            Already have an account?{' '}
+            已经有账户了？{' '}
             <Link href="/login" className="font-semibold text-primary hover:underline">
-              Sign In
+              登录
             </Link>
           </p>
         </CardFooter>

@@ -1,4 +1,3 @@
-
 import { GitCommit, LogOut, User } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
@@ -49,14 +48,14 @@ export default function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{user.username}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.isAdmin ? 'Administrator' : 'User'}
+                      {user.isAdmin ? '管理员' : '用户'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <span>退出登录</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
