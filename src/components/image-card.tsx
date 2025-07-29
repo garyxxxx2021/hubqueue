@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban, ShieldQuestion } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   AlertDialog,
@@ -74,6 +74,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
   const isAdmin = user?.isAdmin || false;
   const canUserDelete = isAdmin || status === 'uploaded';
+  const isTrusted = user?.isTrusted || false;
 
 
   return (
@@ -109,10 +110,17 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
                     {status === 'uploaded' && (
-                        <Button onClick={() => onClaim(id)} size="sm" className="w-full">
-                            <GitBranch className="mr-2 h-4 w-4"/>
-                            认领任务
-                        </Button>
+                        isTrusted ? (
+                          <Button onClick={() => onClaim(id)} size="sm" className="w-full">
+                              <GitBranch className="mr-2 h-4 w-4"/>
+                              认领任务
+                          </Button>
+                        ) : (
+                          <Button size="sm" className="w-full" disabled>
+                            <ShieldQuestion className="mr-2 h-4 w-4"/>
+                            等待受信任用户接单
+                          </Button>
+                        )
                     )}
                     {isClaimedByCurrentUser && (
                          <div className="w-full flex items-center gap-2">

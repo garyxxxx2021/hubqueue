@@ -1,4 +1,4 @@
-import { GitCommit, LogOut, User } from 'lucide-react';
+import { GitCommit, LogOut, User, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,10 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     router.push('/login');
+  }
+  
+  const handleUserManagement = () => {
+    router.push('/users');
   }
 
   return (
@@ -48,11 +52,17 @@ export default function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{user.username}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.isAdmin ? '管理员' : '用户'}
+                      {user.isAdmin ? '管理员' : (user.isTrusted ? '受信任用户' : '用户')}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {user.isAdmin && (
+                  <DropdownMenuItem onClick={handleUserManagement}>
+                    <Users className="mr-2 h-4 w-4" />
+                    <span>用户管理</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>退出登录</span>

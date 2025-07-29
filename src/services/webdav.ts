@@ -8,9 +8,10 @@ import type { ImageFile } from '@/types';
 const IMAGES_JSON_PATH = '/images.json';
 const USERS_JSON_PATH = '/users.json';
 
-interface User {
+export interface StoredUser {
   username: string;
   isAdmin: boolean;
+  isTrusted: boolean;
   passwordHash: string;
 }
 
@@ -59,7 +60,6 @@ export async function getImageList(): Promise<ImageFile[]> {
     return [];
   } catch (error: any) {
     console.error('Failed to get image list from WebDAV', error);
-    // If there's an error (e.g., file not found, parsing error), return empty array
     return [];
   }
 }
@@ -89,7 +89,7 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
     }
 }
 
-export async function getUsers(): Promise<User[]> {
+export async function getUsers(): Promise<StoredUser[]> {
   const client = getClient();
   try {
     if (await client.exists(USERS_JSON_PATH)) {
@@ -102,7 +102,7 @@ export async function getUsers(): Promise<User[]> {
   }
 }
 
-export async function saveUsers(users: User[]): Promise<{success: boolean, error?: string}> {
+export async function saveUsers(users: StoredUser[]): Promise<{success: boolean, error?: string}> {
   const client = getClient();
   try {
     await client.putFileContents(USERS_JSON_PATH, JSON.stringify(users, null, 2));

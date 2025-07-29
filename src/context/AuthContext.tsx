@@ -1,17 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getUsers, saveUsers } from '@/services/webdav'; // Using WebDAV for user persistence
+import { getUsers, saveUsers, StoredUser } from '@/services/webdav'; 
 
-// Define the shape of the user object and the auth context
 interface User {
   username: string;
   isAdmin: boolean;
-}
-
-// Stored user includes a hashed password
-interface StoredUser extends User {
-    passwordHash: string;
+  isTrusted: boolean;
 }
 
 interface AuthContextType {
@@ -22,10 +17,8 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
-// Create the context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define the props for the AuthProvider
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -43,7 +36,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on initial render
   useEffect(() => {
     try {
         const storedUser = localStorage.getItem('user');
@@ -63,7 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
     if (foundUser) {
-      const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin };
+      const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin, isTrusted: foundUser.isTrusted };
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return true;
@@ -84,20 +76,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return { success: false, message: "该用户名已存在。" };
         }
 
-        const isAdmin = users.length === 0; // First user is admin
+        const isAdmin = users.length === 0;
+        const isTrusted = isAdmin; // First user is admin and trusted
         const passwordHash = await hashPassword(password_input);
 
         const newUser: StoredUser = {
             username,
             passwordHash,
             isAdmin,
+            isTrusted,
         };
 
         const updatedUsers = [...users, newUser];
         const { success, error } = await saveUsers(updatedUsers);
 
         if (success) {
-            const userData = { username: newUser.username, isAdmin: newUser.isAdmin };
+            const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
             localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);
             return { success: true, message: "注册成功！" };
@@ -126,7 +120,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 }
 
-// Custom hook to use the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
