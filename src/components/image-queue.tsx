@@ -12,13 +12,13 @@ interface ImageQueueProps {
 
 export function ImageQueue({ images, onClaim, onUpload, onDelete, isSyncing }: ImageQueueProps) {
   return (
-    <div>
+    <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold tracking-tight">Image Queue</h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isSyncing && (
                 <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" /> 
                     <span>Syncing...</span>
                 </>
             )}

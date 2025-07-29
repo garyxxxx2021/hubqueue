@@ -7,7 +7,7 @@ import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
-import { Syncing } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
@@ -33,12 +33,12 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       // Don't show toast on background polls
-      if (!showSyncingIndicator) {
-        toast({
-          variant: "destructive",
-          title: "Failed to load image list",
-          description: error.message || "Could not connect to WebDAV.",
-        });
+      if (showSyncingIndicator) {
+          toast({
+            variant: "destructive",
+            title: "Failed to load image list",
+            description: error.message || "Could not connect to WebDAV.",
+          });
       }
       console.error("Polling failed:", error);
     } finally {
@@ -67,94 +67,127 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [fetchImages]);
 
-  const updateAndSave = async (updatedImages: ImageFile[], successMessage?: {title: string, description: string}) => {
-    setImages(updatedImages); // Optimistic update
-    const { success, error } = await saveImageList(updatedImages);
-    if (success) {
-      if(successMessage) {
-        toast(successMessage);
-      }
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Sync Failed",
-        description: error || "Could not save the image list to WebDAV.",
-      });
-      // On failure, refetch to get the ground truth from the server
-      await fetchImages(true);
-    }
-  };
+  const handleClaimImage = async (id: string) => {
+    setIsSyncing(true);
+    try {
+      // 1. Fetch the latest list from the server
+      const currentImages = await getImageList();
+      const imageToClaim = currentImages.find(img => img.id === id);
 
-
-  const updateImage = (id: string, updates: Partial<ImageFile>) => {
-    const updatedImages = images.map(img => img.id === id ? { ...img, ...updates } : img)
-    updateAndSave(updatedImages);
-  };
-
-  const handleClaimImage = (id: string) => {
-    const image = images.find(img => img.id === id);
-    if(image && image.status === 'uploaded'){
-        const updatedImages = images.map(img => img.id === id ? { ...img, status: 'in-progress', claimedBy: 'You' } : img);
-        updateAndSave(updatedImages, {
-          title: "Task Claimed",
-          description: `You have claimed ${image.name}.`
+      if (imageToClaim && imageToClaim.status === 'uploaded') {
+        // 2. Apply the change
+        const updatedImages = currentImages.map(img => 
+          img.id === id ? { ...img, status: 'in-progress', claimedBy: 'You' } : img
+        );
+        
+        // 3. Save the updated list back to the server
+        const { success, error } = await saveImageList(updatedImages);
+        
+        if (success) {
+          // 4. Update the UI with the new list
+          setImages(updatedImages);
+          toast({
+            title: "Task Claimed",
+            description: `You have claimed ${imageToClaim.name}.`
+          });
+        } else {
+          throw new Error(error || "Failed to save updated image list.");
+        }
+      } else {
+         toast({
+            variant: "destructive",
+            title: "Action Failed",
+            description: "This task may have already been claimed by another user."
         });
+        // Refresh UI with latest from server if claim failed
+        setImages(currentImages);
+      }
+    } catch (error: any) {
+       toast({
+        variant: "destructive",
+        title: "Sync Error",
+        description: error.message || "Could not claim the task.",
+      });
+      // On any failure, fetch the ground truth
+      await fetchImages(false);
+    } finally {
+        setIsSyncing(false);
     }
   };
   
-  const handleImageUploaded = (uploadedImage: { name: string, webdavPath: string }) => {
-    const newImage: ImageFile = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: uploadedImage.name,
-      webdavPath: uploadedImage.webdavPath,
-      url: `/api/image?path=${encodeURIComponent(uploadedImage.webdavPath)}`,
-      status: 'uploaded',
-      createdAt: Date.now(),
-    };
-    const updatedImages = [newImage, ...images];
-    updateAndSave(updatedImages, {
-      title: "Upload Successful",
-      description: `${newImage.name} has been added to the queue.`
-    });
+  const handleImageUploaded = async (uploadedImage: { name: string, webdavPath: string }) => {
+    setIsSyncing(true);
+    try {
+        const newImage: ImageFile = {
+            id: Math.random().toString(36).substring(2, 9),
+            name: uploadedImage.name,
+            webdavPath: uploadedImage.webdavPath,
+            url: `/api/image?path=${encodeURIComponent(uploadedImage.webdavPath)}`,
+            status: 'uploaded',
+            createdAt: Date.now(),
+        };
+
+        const currentImages = await getImageList();
+        const updatedImages = [newImage, ...currentImages];
+
+        const { success, error } = await saveImageList(updatedImages);
+        if (success) {
+            setImages(updatedImages);
+            toast({
+                title: "Upload Successful",
+                description: `${newImage.name} has been added to the queue.`
+            });
+        } else {
+            throw new Error(error || 'Could not save the image list to WebDAV.');
+        }
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Sync Failed",
+            description: error.message,
+        });
+        await fetchImages(false);
+    } finally {
+        setIsSyncing(false);
+    }
   };
   
   const handleDeleteImage = async (id: string) => {
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
 
-    // Optimistically remove from UI
-    const updatedImages = images.filter(img => img.id !== id);
-    setImages(updatedImages);
+    setIsSyncing(true);
 
-    // Delete from WebDAV storage
-    const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
-    if (!deleteSuccess) {
-       toast({
-        variant: "destructive",
-        title: "Deletion Failed on Storage",
-        description: deleteError || `Could not delete ${imageToDelete.name} from WebDAV storage.`,
-      });
-      // Revert UI change and show error
-      await fetchImages(true);
-      return;
-    }
+    try {
+        // First, delete the file from storage
+        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
+        if (!deleteSuccess) {
+            throw new Error(deleteError || `Could not delete file from storage.`);
+        }
 
-    // Save the updated list
-    const { success, error } = await saveImageList(updatedImages);
+        // If file deletion is successful, update the list
+        const currentImages = await getImageList();
+        const updatedImages = currentImages.filter(img => img.id !== id);
 
-    if (success) {
-      toast({
-          title: "Image Deleted",
-          description: `${imageToDelete.name} has been removed from the queue and WebDAV.`,
-      });
-    } else {
-      // Revert UI change and show error
-      toast({
-        variant: "destructive",
-        title: "Deletion Failed",
-        description: error || `Could not delete ${imageToDelete.name} from WebDAV.`,
-      });
-      await fetchImages(true);
+        const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
+        if(saveSuccess) {
+            setImages(updatedImages);
+            toast({
+                title: "Image Deleted",
+                description: `${imageToDelete.name} has been removed.`,
+            });
+        } else {
+            throw new Error(saveError || "Could not update the image list.");
+        }
+    } catch (error: any) {
+         toast({
+            variant: "destructive",
+            title: "Deletion Failed",
+            description: error.message,
+        });
+        await fetchImages(false); // Re-sync on failure
+    } finally {
+        setIsSyncing(false);
     }
   };
   
@@ -169,7 +202,10 @@ export default function Dashboard() {
         <div className="mt-8">
             <div className="flex justify-between items-center mb-6">
                 <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-24" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Loading...</span>
+                </div>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
