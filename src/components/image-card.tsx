@@ -118,7 +118,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                         ) : (
                           <Button size="sm" className="w-full" disabled>
                             <ShieldQuestion className="mr-2 h-4 w-4"/>
-                            等待受信任用户接单
+                            等待可信用户接单
                           </Button>
                         )
                     )}

@@ -52,7 +52,7 @@ export default function Header() {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{user.username}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.isAdmin ? '管理员' : (user.isTrusted ? '受信任用户' : '用户')}
+                      {user.isAdmin ? '管理员' : (user.isTrusted ? '可信用户' : '用户')}
                     </p>
                   </div>
                 </DropdownMenuLabel>

@@ -112,7 +112,7 @@ export default function UserManagement() {
               <TableRow>
                 <TableHead>用户</TableHead>
                 <TableHead>角色</TableHead>
-                <TableHead className="text-right">受信任</TableHead>
+                <TableHead className="text-right">可信</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,7 +133,7 @@ export default function UserManagement() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                         <span className={`text-sm ${u.isTrusted ? 'text-primary' : 'text-muted-foreground'}`}>
-                           {u.isTrusted ? '已信任' : '未信任'}
+                           {u.isTrusted ? '可信' : '不可信'}
                         </span>
                         <Switch
                             checked={u.isTrusted}
