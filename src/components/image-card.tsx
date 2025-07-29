@@ -74,8 +74,11 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
   const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === user?.username;
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
   const isAdmin = user?.isAdmin || false;
-  const canUserDelete = isAdmin;
   const isTrusted = user?.isTrusted || false;
+
+  // Admin can delete anything.
+  // Trusted users can delete items that are not claimed.
+  const canUserDelete = isAdmin || (isTrusted && status === 'uploaded');
 
 
   return (
