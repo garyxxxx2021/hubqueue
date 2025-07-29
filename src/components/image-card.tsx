@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   AlertDialog,
@@ -48,6 +48,27 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
     // Kept for potential "error" states during initial upload if that logic is added.
     onUpload(id); 
   }
+  
+  const handleDownload = async () => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+    } catch (error) {
+        console.error("Download failed:", error);
+        // You could add a toast here to notify the user
+    }
+  };
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
@@ -88,9 +109,31 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                         </Button>
                     )}
                     {status === 'in-progress' && (
-                        <div className="flex items-center justify-center text-sm font-medium text-foreground/80">
-                            <CheckCircle2 className="mr-2 h-4 w-4 text-green-500"/>
-                            Claimed
+                         <div className="w-full flex items-center gap-2">
+                            <Button onClick={handleDownload} size="sm" variant="secondary" className="flex-1">
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" className="flex-1">
+                                        <PartyPopper className="mr-2 h-4 w-4" />
+                                        Complete
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Mark as Complete?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                    This will remove the image <span className="font-semibold">{name}</span> from the queue. Make sure you have finished your work with it.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(id)}>Confirm</AlertDialogAction>
+                                </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                     )}
                      {status === 'queued' && (
