@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -55,7 +56,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
     if (foundUser) {
-      const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin, isTrusted: foundUser.isTrusted };
+      const isTrusted = foundUser.isAdmin || foundUser.isTrusted;
+      const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin, isTrusted: isTrusted };
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return true;

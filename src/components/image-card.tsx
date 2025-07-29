@@ -1,3 +1,4 @@
+
 import Image from 'next/image';
 import { useState } from 'react';
 import type { ImageFile } from '@/types';
@@ -117,7 +118,7 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onDelete }: Ima
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
                     {status === 'uploaded' && (
-                        user?.isTrusted ? (
+                        (user?.isAdmin || user?.isTrusted) ? (
                           <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                               <GitBranch className="mr-2 h-4 w-4"/>
                               认领任务
