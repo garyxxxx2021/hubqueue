@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
-import { uploadImage, UploadImageInput } from '@/ai/flows/upload-image-flow';
 import { useToast } from "@/hooks/use-toast";
+import { uploadToWebdav } from '@/services/webdav';
 
 const initialImagesData: Omit<ImageFile, 'id'>[] = [
   { name: 'landscape-sunset.jpg', url: 'https://placehold.co/600x400.png', status: 'queued' },
@@ -50,12 +50,7 @@ export default function Dashboard() {
     try {
         const dataUrl = await urlToDataUrl(imageToUpload.url);
 
-        const input: UploadImageInput = {
-            fileName: imageToUpload.name,
-            dataUrl: dataUrl,
-        };
-
-        const result = await uploadImage(input);
+        const result = await uploadToWebdav(imageToUpload.name, dataUrl);
 
         if (result.success) {
             updateImage(id, { status: 'uploaded', isUploading: false });
@@ -64,7 +59,7 @@ export default function Dashboard() {
               description: `${imageToUpload.name} has been uploaded.`,
             });
         } else {
-            throw new Error('Upload flow failed.');
+            throw new Error('Upload failed.');
         }
 
     } catch (error) {
