@@ -5,10 +5,9 @@ import { UploadCloud, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { uploadToWebdav } from '@/services/webdav';
-import type { ImageFile } from '@/types';
 
 interface ImageUploaderProps {
-  onImageUploaded: (image: Omit<ImageFile, 'id' | 'status'| 'url'> & { webdavPath: string }) => void;
+  onImageUploaded: (image: { name: string, webdavPath: string }) => void;
 }
 
 export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
@@ -40,36 +39,47 @@ export function ImageUploader({ onImageUploaded }: ImageUploaderProps) {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string;
-        const result = await uploadToWebdav(file.name, dataUrl);
+        try {
+            const dataUrl = e.target?.result as string;
+            const result = await uploadToWebdav(file.name, dataUrl);
 
-        if (result.success && result.path) {
-          toast({
-            title: "Upload Successful",
-            description: `${file.name} has been uploaded.`,
-          });
-          onImageUploaded({ name: file.name, webdavPath: result.path });
-        } else {
-          throw new Error(result.error || 'Upload failed due to an unknown error.');
+            if (result.success && result.path) {
+                toast({
+                    title: "Upload Successful",
+                    description: `${file.name} has been uploaded.`,
+                });
+                onImageUploaded({ name: file.name, webdavPath: result.path });
+            } else {
+                throw new Error(result.error || 'Upload failed due to an unknown error.');
+            }
+        } catch (error: any) {
+            console.error("Upload failed", error);
+            toast({
+                variant: "destructive",
+                title: "Upload Failed",
+                description: error.message || `Could not upload ${file.name}.`,
+            });
+        } finally {
+            setIsUploading(false);
+            // Reset file input to allow uploading the same file again
+            if(fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
         }
-        
-        setIsUploading(false);
       };
       reader.onerror = (error) => {
+        setIsUploading(false);
         throw new Error('Could not read the file.');
       }
     } catch (error: any) {
-      console.error("Upload failed", error);
+      console.error("File processing failed", error);
       toast({
           variant: "destructive",
-          title: "Upload Failed",
-          description: error.message || `Could not upload ${file.name}.`,
+          title: "Error",
+          description: error.message || `Could not process ${file.name}.`,
       });
       setIsUploading(false);
     }
-
-    // Reset file input to allow uploading the same file again
-    event.target.value = '';
   };
 
   return (

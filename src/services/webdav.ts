@@ -1,27 +1,31 @@
 'use server';
 
-import { createClient } from 'webdav';
+import { createClient, WebDAVClient } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
+import type { ImageFile } from '@/types';
 
-export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
+const IMAGES_JSON_PATH = '/images.json';
+
+function getClient(): WebDAVClient {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
-    const errorMessage = 'WebDAV configuration is incomplete. Please check your .env file.';
-    console.error(errorMessage);
-    return { success: false, error: errorMessage };
+    throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
   }
-
-  const client = createClient(webdavConfig.url, {
+  return createClient(webdavConfig.url, {
     username: webdavConfig.username,
     password: webdavConfig.password,
   });
+}
 
+export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
+  const client = getClient();
   const buffer = Buffer.from(dataUrl.split(',')[1], 'base64');
   
   try {
-    const filePath = `/uploads/${fileName}`;
-    // Ensure the directory exists
-    if (!(await client.exists('/uploads'))) {
-        await client.createDirectory('/uploads');
+    const uploadsPath = '/uploads';
+    const filePath = `${uploadsPath}/${fileName}`;
+    
+    if (!(await client.exists(uploadsPath))) {
+        await client.createDirectory(uploadsPath);
     }
 
     const success = await client.putFileContents(filePath, buffer);
@@ -33,7 +37,46 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
     }
   } catch (error: any) {
     console.error('Failed to upload to WebDAV', error);
-    // Rethrow a more user-friendly error or return a structured error response
     return { success: false, error: error.message || 'An unknown error occurred during upload.' };
   }
+}
+
+export async function getImageList(): Promise<ImageFile[]> {
+  const client = getClient();
+  try {
+    if (await client.exists(IMAGES_JSON_PATH)) {
+      const content = await client.getFileContents(IMAGES_JSON_PATH, { format: 'text' });
+      return JSON.parse(content as string);
+    }
+    return [];
+  } catch (error: any) {
+    console.error('Failed to get image list from WebDAV', error);
+    // If there's an error (e.g., file not found, parsing error), return empty array
+    return [];
+  }
+}
+
+export async function saveImageList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
+  const client = getClient();
+  try {
+    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(images, null, 2));
+    console.log('Image list saved successfully to WebDAV.');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to save image list to WebDAV', error);
+    return { success: false, error: error.message || 'An unknown error occurred during save.' };
+  }
+}
+
+export async function deleteWebdavFile(path: string): Promise<{success: boolean, error?: string}> {
+    const client = getClient();
+    try {
+        if (await client.exists(path)) {
+            await client.deleteFile(path);
+        }
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Failed to delete file from WebDAV: ${path}`, error);
+        return { success: false, error: error.message };
+    }
 }

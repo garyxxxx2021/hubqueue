@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, Upload, CheckCircle2, XCircle, Trash2, User, RefreshCcw } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User } from 'lucide-react';
 
 interface ImageCardProps {
   image: ImageFile;
