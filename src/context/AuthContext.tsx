@@ -1,8 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { users } from '@/config/users'; // Insecure: for demo purposes only
+import { getUsers, saveUsers } from '@/services/webdav'; // Using WebDAV for user persistence
 
 // Define the shape of the user object and the auth context
 interface User {
@@ -10,10 +9,18 @@ interface User {
   isAdmin: boolean;
 }
 
+// Stored user includes password (for demo purposes)
+// WARNING: Storing plain text passwords is a security risk.
+// In a real application, use a secure hashing algorithm and a proper database.
+interface StoredUser extends User {
+    password_plaintext: string;
+}
+
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password_input: string) => boolean;
+  login: (username: string, password_input: string) => Promise<boolean>;
   logout: () => void;
+  register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
 }
 
@@ -43,9 +50,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, []);
 
-  const login = (username: string, password_input: string): boolean => {
-    // WARNING: THIS IS NOT A SECURE WAY TO HANDLE LOGIN
-    const foundUser = users.find(u => u.username === username && u.password === password_input);
+  const login = async (username: string, password_input: string): Promise<boolean> => {
+    const users = await getUsers();
+    const foundUser = users.find(u => u.username === username && u.password_plaintext === password_input);
 
     if (foundUser) {
       const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin };
@@ -56,12 +63,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return false;
   };
 
+  const register = async (username: string, password_input: string): Promise<{ success: boolean; message: string }> => {
+    if (!username || !password_input) {
+        return { success: false, message: "Username and password cannot be empty." };
+    }
+    
+    setIsLoading(true);
+    try {
+        const users = await getUsers();
+
+        if (users.find(u => u.username === username)) {
+            return { success: false, message: "Username already exists." };
+        }
+
+        const isAdmin = users.length === 0; // First user is admin
+
+        const newUser: StoredUser = {
+            username,
+            password_plaintext: password_input, // WARNING: Not secure
+            isAdmin,
+        };
+
+        const updatedUsers = [...users, newUser];
+        const { success, error } = await saveUsers(updatedUsers);
+
+        if (success) {
+            const userData = { username: newUser.username, isAdmin: newUser.isAdmin };
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+            return { success: true, message: "Registration successful!" };
+        } else {
+            return { success: false, message: error || "Failed to save user data." };
+        }
+    } catch (error: any) {
+        return { success: false, message: error.message || "An unexpected error occurred." };
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+
   const logout = () => {
     localStorage.removeItem('user');
     setUser(null);
   };
 
-  const value = { user, login, logout, isLoading };
+  const value = { user, login, logout, register, isLoading };
 
   return (
     <AuthContext.Provider value={value}>

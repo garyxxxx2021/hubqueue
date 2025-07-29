@@ -5,6 +5,13 @@ import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 
 const IMAGES_JSON_PATH = '/images.json';
+const USERS_JSON_PATH = '/users.json';
+
+interface User {
+  username: string;
+  isAdmin: boolean;
+  password_plaintext: string;
+}
 
 function getClient(): WebDAVClient {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
@@ -79,4 +86,27 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
         console.error(`Failed to delete file from WebDAV: ${path}`, error);
         return { success: false, error: error.message };
     }
+}
+
+export async function getUsers(): Promise<User[]> {
+  const client = getClient();
+  try {
+    if (await client.exists(USERS_JSON_PATH)) {
+      const content = await client.getFileContents(USERS_JSON_PATH, { format: 'text' });
+      return JSON.parse(content as string);
+    }
+    return [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function saveUsers(users: User[]): Promise<{success: boolean, error?: string}> {
+  const client = getClient();
+  try {
+    await client.putFileContents(USERS_JSON_PATH, JSON.stringify(users, null, 2));
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
