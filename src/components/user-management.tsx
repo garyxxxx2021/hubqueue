@@ -132,11 +132,11 @@ export default function UserManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                        <span className={`text-sm font-medium ${u.isTrusted ? 'text-primary' : 'text-muted-foreground'}`}>
-                           {u.isTrusted ? '可信' : '不可信'}
+                        <span className={`text-sm font-medium ${u.isTrusted || u.isAdmin ? 'text-primary' : 'text-muted-foreground'}`}>
+                           {u.isTrusted || u.isAdmin ? '可信' : '不可信'}
                         </span>
                         <Switch
-                            checked={u.isTrusted}
+                            checked={u.isTrusted || u.isAdmin}
                             onCheckedChange={(checked) => handleTrustToggle(u.username, checked)}
                             disabled={u.isAdmin}
                             aria-label={`Toggle trust for ${u.username}`}
