@@ -36,6 +36,10 @@ const statusConfig = {
   error: { variant: 'destructive', label: 'Error' },
 } as const;
 
+// A simple way to check for admin without a full auth system.
+// In a real app, this would be handled by a proper auth system.
+const ADMIN_USERNAME = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "admin";
+
 export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: ImageCardProps) {
   const { id, name, url, status, claimedBy, isUploading } = image;
   const config = statusConfig[status];
@@ -74,6 +78,10 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
   
   const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === currentUser;
   const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== currentUser;
+  const isAdmin = currentUser === ADMIN_USERNAME;
+  // Admin can delete anything. Others can only delete if unclaimed.
+  const canUserDelete = isAdmin || status === 'uploaded';
+
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
@@ -100,7 +108,7 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
         {status === 'in-progress' && claimedBy && (
             <div className="flex items-center text-xs text-muted-foreground mb-4">
                 <User className="w-3 h-3 mr-1.5"/>
-                Claimed by {claimedBy}
+                Claimed by {claimedBy === currentUser ? 'you' : claimedBy}
             </div>
         )}
         <div className="flex-grow"></div>
@@ -169,7 +177,7 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
                       <Tooltip>
                           <TooltipTrigger asChild>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isClaimedByOther}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={!canUserDelete}>
                                   <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
                                   <span className="sr-only">Delete</span>
                               </Button>
@@ -185,7 +193,7 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
                       <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the
-                        image <span className="font-semibold">{name}</span> from the queue and the server.
+                        image <span className="font-semibold">{name}</span> from the server.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
