@@ -1,8 +1,14 @@
-import { GitCommit, Bell, User } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 
-export default function Header() {
+import { GitCommit } from 'lucide-react';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+
+interface HeaderProps {
+    currentUser: string;
+    onUserChange: (user: string) => void;
+}
+
+export default function Header({ currentUser, onUserChange }: HeaderProps) {
   return (
     <header className="bg-card border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
@@ -12,17 +18,15 @@ export default function Header() {
           </div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">GitShare</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Bell className="h-5 w-5" />
-            <span className="sr-only">View notifications</span>
-          </Button>
-          <Avatar className="h-9 w-9">
-             <AvatarImage src="https://placehold.co/40x40.png" data-ai-hint="person avatar" />
-            <AvatarFallback>
-              <User className="h-5 w-5" />
-            </AvatarFallback>
-          </Avatar>
+        <div className="flex items-center gap-3">
+          <Label htmlFor="username" className="text-sm font-medium">Username:</Label>
+          <Input 
+            id="username"
+            value={currentUser}
+            onChange={(e) => onUserChange(e.target.value)}
+            className="h-9 w-40"
+            placeholder="Enter your name"
+          />
         </div>
       </div>
     </header>

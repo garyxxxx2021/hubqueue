@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -11,7 +12,11 @@ import { RefreshCw } from 'lucide-react';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
-export default function Dashboard() {
+interface DashboardProps {
+  currentUser: string;
+}
+
+export default function Dashboard({ currentUser }: DashboardProps) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -68,6 +73,15 @@ export default function Dashboard() {
   }, [fetchImages]);
 
   const handleClaimImage = async (id: string) => {
+    if (!currentUser.trim()) {
+        toast({
+            variant: "destructive",
+            title: "Username Required",
+            description: "Please set a username in the header before claiming a task.",
+        });
+        return;
+    }
+
     setIsSyncing(true);
     try {
       // 1. Fetch the latest list from the server
@@ -77,7 +91,7 @@ export default function Dashboard() {
       if (imageToClaim && imageToClaim.status === 'uploaded') {
         // 2. Apply the change
         const updatedImages = currentImages.map(img => 
-          img.id === id ? { ...img, status: 'in-progress', claimedBy: 'You' } : img
+          img.id === id ? { ...img, status: 'in-progress', claimedBy: currentUser } : img
         );
         
         // 3. Save the updated list back to the server
@@ -222,6 +236,7 @@ export default function Dashboard() {
       ) : (
         <ImageQueue
           images={images}
+          currentUser={currentUser}
           onClaim={handleClaimImage}
           onUpload={handleUploadFromQueue}
           onDelete={handleDeleteImage}

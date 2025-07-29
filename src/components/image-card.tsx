@@ -1,3 +1,4 @@
+
 import Image from 'next/image';
 import { useState } from 'react';
 import type { ImageFile } from '@/types';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper } from 'lucide-react';
+import { Loader2, GitBranch, CheckCircle2, RefreshCcw, Trash2, User, Download, PartyPopper, Ban } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import {
   AlertDialog,
@@ -22,6 +23,7 @@ import {
 
 interface ImageCardProps {
   image: ImageFile;
+  currentUser: string;
   onClaim: (id: string) => void;
   onUpload: (id: string) => void; 
   onDelete: (id: string) => void;
@@ -34,7 +36,7 @@ const statusConfig = {
   error: { variant: 'destructive', label: 'Error' },
 } as const;
 
-export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps) {
+export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: ImageCardProps) {
   const { id, name, url, status, claimedBy, isUploading } = image;
   const config = statusConfig[status];
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -69,6 +71,9 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
         // You could add a toast here to notify the user
     }
   };
+  
+  const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === currentUser;
+  const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== currentUser;
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
@@ -108,7 +113,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                             Claim Task
                         </Button>
                     )}
-                    {status === 'in-progress' && (
+                    {isClaimedByCurrentUser && (
                          <div className="w-full flex items-center gap-2">
                             <Button onClick={handleDownload} size="sm" variant="secondary" className="flex-1">
                                 <Download className="mr-2 h-4 w-4" />
@@ -136,6 +141,12 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                             </AlertDialog>
                         </div>
                     )}
+                    {isClaimedByOther && (
+                        <Button size="sm" className="w-full" disabled>
+                            <Ban className="mr-2 h-4 w-4"/>
+                            Claimed by other
+                        </Button>
+                    )}
                      {status === 'queued' && (
                         <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">
                            Awaiting Upload
@@ -158,7 +169,7 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
                       <Tooltip>
                           <TooltipTrigger asChild>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isClaimedByOther}>
                                   <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
                                   <span className="sr-only">Delete</span>
                               </Button>
