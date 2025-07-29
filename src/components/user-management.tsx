@@ -17,6 +17,7 @@ export default function UserManagement() {
   const { user, isMaintenanceMode, setMaintenanceMode, isLoading: isAuthLoading, updateUserStatus } = useAuth();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [updatingStates, setUpdatingStates] = useState<Record<string, boolean>>({});
   const router = useRouter();
   const { toast } = useToast();
 
@@ -53,6 +54,7 @@ export default function UserManagement() {
   }, [user]);
   
   const handleTrustToggle = async (username: string, isTrusted: boolean) => {
+    setUpdatingStates(prev => ({ ...prev, [username]: true }));
     const originalUsers = [...users];
     const updatedUsers = users.map(u => 
         u.username === username ? { ...u, isTrusted } : u
@@ -80,9 +82,11 @@ export default function UserManagement() {
         
         await fetchUsers();
     }
+    setUpdatingStates(prev => ({ ...prev, [username]: false }));
   };
 
   const handleMaintenanceToggle = async (isMaintenance: boolean) => {
+    setUpdatingStates(prev => ({ ...prev, maintenance: true }));
     setMaintenanceMode(isMaintenance);
     const { success, error } = await saveMaintenanceStatus({ isMaintenance });
      if (!success) {
@@ -98,6 +102,7 @@ export default function UserManagement() {
             description: `网站维护模式已${isMaintenance ? '开启' : '关闭'}。`,
         });
     }
+    setUpdatingStates(prev => ({ ...prev, maintenance: false }));
   }
 
   if (isAuthLoading || isLoading) {
@@ -159,6 +164,7 @@ export default function UserManagement() {
                         id="maintenance-mode"
                         checked={isMaintenanceMode}
                         onCheckedChange={handleMaintenanceToggle}
+                        disabled={updatingStates['maintenance']}
                         aria-label="Toggle maintenance mode"
                     />
                 </div>
@@ -201,7 +207,7 @@ export default function UserManagement() {
                             <Switch
                                 checked={u.isTrusted || u.isAdmin}
                                 onCheckedChange={(checked) => handleTrustToggle(u.username, checked)}
-                                disabled={u.isAdmin}
+                                disabled={u.isAdmin || updatingStates[u.username]}
                                 aria-label={`Toggle trust for ${u.username}`}
                             />
                         </div>
