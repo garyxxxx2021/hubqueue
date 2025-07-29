@@ -9,20 +9,17 @@ import { useToast } from "@/hooks/use-toast";
 import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 
-interface DashboardProps {
-  currentUser: string;
-}
-
-export default function Dashboard({ currentUser }: DashboardProps) {
+export default function Dashboard() {
+  const { user } = useAuth();
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
   
-  // Ref to store the latest version of images to prevent stale state in closures
   const imagesRef = useRef(images);
   imagesRef.current = images;
 
@@ -32,12 +29,10 @@ export default function Dashboard({ currentUser }: DashboardProps) {
     }
     try {
       const imageList = await getImageList();
-      // Only update if the fetched list is different from the current one
       if (JSON.stringify(imageList) !== JSON.stringify(imagesRef.current)) {
         setImages(imageList);
       }
     } catch (error: any) {
-      // Don't show toast on background polls
       if (showSyncingIndicator) {
           toast({
             variant: "destructive",
@@ -53,8 +48,6 @@ export default function Dashboard({ currentUser }: DashboardProps) {
     }
   }, [toast]);
 
-
-  // Initial fetch
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
@@ -64,7 +57,6 @@ export default function Dashboard({ currentUser }: DashboardProps) {
     initialFetch();
   }, [fetchImages]);
   
-  // Set up polling
   useEffect(() => {
     const interval = setInterval(() => {
         fetchImages(true);
@@ -73,32 +65,28 @@ export default function Dashboard({ currentUser }: DashboardProps) {
   }, [fetchImages]);
 
   const handleClaimImage = async (id: string) => {
-    if (!currentUser.trim()) {
+    if (!user) {
         toast({
             variant: "destructive",
-            title: "Username Required",
-            description: "Please set a username in the header before claiming a task.",
+            title: "Authentication Error",
+            description: "You must be logged in to claim a task.",
         });
         return;
     }
 
     setIsSyncing(true);
     try {
-      // 1. Fetch the latest list from the server
       const currentImages = await getImageList();
       const imageToClaim = currentImages.find(img => img.id === id);
 
       if (imageToClaim && imageToClaim.status === 'uploaded') {
-        // 2. Apply the change
         const updatedImages = currentImages.map(img => 
-          img.id === id ? { ...img, status: 'in-progress', claimedBy: currentUser } : img
+          img.id === id ? { ...img, status: 'in-progress', claimedBy: user.username } : img
         );
         
-        // 3. Save the updated list back to the server
         const { success, error } = await saveImageList(updatedImages);
         
         if (success) {
-          // 4. Update the UI with the new list
           setImages(updatedImages);
           toast({
             title: "Task Claimed",
@@ -113,7 +101,6 @@ export default function Dashboard({ currentUser }: DashboardProps) {
             title: "Action Failed",
             description: "This task may have already been claimed by another user."
         });
-        // Refresh UI with latest from server if claim failed
         setImages(currentImages);
       }
     } catch (error: any) {
@@ -122,7 +109,6 @@ export default function Dashboard({ currentUser }: DashboardProps) {
         title: "Sync Error",
         description: error.message || "Could not claim the task.",
       });
-      // On any failure, fetch the ground truth
       await fetchImages(false);
     } finally {
         setIsSyncing(false);
@@ -173,13 +159,11 @@ export default function Dashboard({ currentUser }: DashboardProps) {
     setIsSyncing(true);
 
     try {
-        // First, delete the file from storage
         const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
         if (!deleteSuccess) {
             throw new Error(deleteError || `Could not delete file from storage.`);
         }
 
-        // If file deletion is successful, update the list
         const currentImages = await getImageList();
         const updatedImages = currentImages.filter(img => img.id !== id);
 
@@ -199,7 +183,7 @@ export default function Dashboard({ currentUser }: DashboardProps) {
             title: "Deletion Failed",
             description: error.message,
         });
-        await fetchImages(false); // Re-sync on failure
+        await fetchImages(false);
     } finally {
         setIsSyncing(false);
     }
@@ -236,7 +220,6 @@ export default function Dashboard({ currentUser }: DashboardProps) {
       ) : (
         <ImageQueue
           images={images}
-          currentUser={currentUser}
           onClaim={handleClaimImage}
           onUpload={handleUploadFromQueue}
           onDelete={handleDeleteImage}

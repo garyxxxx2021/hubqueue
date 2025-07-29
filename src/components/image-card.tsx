@@ -19,11 +19,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useAuth } from '@/context/AuthContext';
 
 
 interface ImageCardProps {
   image: ImageFile;
-  currentUser: string;
   onClaim: (id: string) => void;
   onUpload: (id: string) => void; 
   onDelete: (id: string) => void;
@@ -36,11 +36,9 @@ const statusConfig = {
   error: { variant: 'destructive', label: 'Error' },
 } as const;
 
-// A simple way to check for admin without a full auth system.
-// In a real app, this would be handled by a proper auth system.
-const ADMIN_USERNAME = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "admin";
 
-export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: ImageCardProps) {
+export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps) {
+  const { user } = useAuth();
   const { id, name, url, status, claimedBy, isUploading } = image;
   const config = statusConfig[status];
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -50,8 +48,6 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
   };
 
   const handleRetryUpload = () => {
-    // This functionality is now largely deprecated as uploads are instant.
-    // Kept for potential "error" states during initial upload if that logic is added.
     onUpload(id); 
   }
   
@@ -72,14 +68,12 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
         a.remove();
     } catch (error) {
         console.error("Download failed:", error);
-        // You could add a toast here to notify the user
     }
   };
   
-  const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === currentUser;
-  const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== currentUser;
-  const isAdmin = currentUser === ADMIN_USERNAME;
-  // Admin can delete anything. Others can only delete if unclaimed.
+  const isClaimedByCurrentUser = status === 'in-progress' && claimedBy === user?.username;
+  const isClaimedByOther = status === 'in-progress' && claimedBy && claimedBy !== user?.username;
+  const isAdmin = user?.isAdmin || false;
   const canUserDelete = isAdmin || status === 'uploaded';
 
 
@@ -108,7 +102,7 @@ export function ImageCard({ image, currentUser, onClaim, onUpload, onDelete }: I
         {status === 'in-progress' && claimedBy && (
             <div className="flex items-center text-xs text-muted-foreground mb-4">
                 <User className="w-3 h-3 mr-1.5"/>
-                Claimed by {claimedBy === currentUser ? 'you' : claimedBy}
+                Claimed by {claimedBy === user?.username ? 'you' : claimedBy}
             </div>
         )}
         <div className="flex-grow"></div>

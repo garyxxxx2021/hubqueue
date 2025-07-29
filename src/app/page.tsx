@@ -1,19 +1,13 @@
-
 "use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { useState } from 'react';
-import Header from '@/components/header';
-import Dashboard from '@/components/dashboard';
+export default function RootPage() {
+  const router = useRouter();
 
-export default function Home() {
-  const [currentUser, setCurrentUser] = useState('User1');
+  useEffect(() => {
+    router.replace('/dashboard');
+  }, [router]);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Header currentUser={currentUser} onUserChange={setCurrentUser} />
-      <main className="flex-1">
-        <Dashboard currentUser={currentUser} />
-      </main>
-    </div>
-  );
+  return null;
 }
