@@ -1,3 +1,4 @@
+
 'use server';
 
 import { createClient, WebDAVClient } from 'webdav';
@@ -10,7 +11,7 @@ const USERS_JSON_PATH = '/users.json';
 interface User {
   username: string;
   isAdmin: boolean;
-  password_plaintext: string;
+  passwordHash: string;
 }
 
 function getClient(): WebDAVClient {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -9,11 +10,9 @@ interface User {
   isAdmin: boolean;
 }
 
-// Stored user includes password (for demo purposes)
-// WARNING: Storing plain text passwords is a security risk.
-// In a real application, use a secure hashing algorithm and a proper database.
+// Stored user includes a hashed password
 interface StoredUser extends User {
-    password_plaintext: string;
+    passwordHash: string;
 }
 
 interface AuthContextType {
@@ -30,6 +29,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Define the props for the AuthProvider
 interface AuthProviderProps {
   children: ReactNode;
+}
+
+async function hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -52,7 +60,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (username: string, password_input: string): Promise<boolean> => {
     const users = await getUsers();
-    const foundUser = users.find(u => u.username === username && u.password_plaintext === password_input);
+    const passwordHash = await hashPassword(password_input);
+    const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
     if (foundUser) {
       const userData = { username: foundUser.username, isAdmin: foundUser.isAdmin };
@@ -77,10 +86,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         const isAdmin = users.length === 0; // First user is admin
+        const passwordHash = await hashPassword(password_input);
 
         const newUser: StoredUser = {
             username,
-            password_plaintext: password_input, // WARNING: Not secure
+            passwordHash,
             isAdmin,
         };
 
