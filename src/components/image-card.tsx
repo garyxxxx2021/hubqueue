@@ -9,7 +9,7 @@ import { Loader2, GitBranch, Upload, CheckCircle2, XCircle, Trash2, User, Refres
 interface ImageCardProps {
   image: ImageFile;
   onClaim: (id: string) => void;
-  onUpload: (id: string) => void;
+  onUpload: (id: string) => void; // Kept for potential re-upload logic
   onDelete: (id: string) => void;
 }
 
@@ -28,15 +28,21 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
     return imageName.split('.')[0].replace(/-/g, ' ').split(' ').slice(0, 2).join(' ');
   };
 
+  // This would need to be implemented fully with local file access if re-upload is desired
   const handleRetryUpload = () => {
-    onUpload(id);
+    // onUpload(id); 
+    alert("Re-upload functionality needs to be connected to a file source.");
   }
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
       <CardContent className="p-0">
         <div className="aspect-video relative">
+           {/* The URL is now just a placeholder as the image is on WebDAV */}
           <Image src={url} alt={name} fill className="object-cover bg-muted" data-ai-hint={getAiHint(name)} />
+           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <span className="text-white text-xs font-semibold drop-shadow-md p-2 text-center">Preview not available (on WebDAV)</span>
+           </div>
         </div>
       </CardContent>
       <div className="p-4 flex-1 flex flex-col">
@@ -54,26 +60,21 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
         <CardFooter className="p-0 mt-4">
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
-                    {status === 'queued' && (
+                    {status === 'uploaded' && (
                         <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                             <GitBranch className="mr-2 h-4 w-4"/>
-                            Claim
+                            Claim Task
                         </Button>
                     )}
                     {status === 'in-progress' && (
-                        <Button onClick={() => onUpload(id)} size="sm" className="w-full" disabled={isUploading}>
-                            {isUploading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            ) : (
-                                <Upload className="mr-2 h-4 w-4"/>
-                            )}
-                            {isUploading ? 'Uploading...' : 'Upload to WebDAV'}
-                        </Button>
-                    )}
-                    {status === 'uploaded' && (
                         <div className="flex items-center justify-center text-sm font-medium text-foreground/80">
                             <CheckCircle2 className="mr-2 h-4 w-4 text-green-500"/>
-                            Successfully Uploaded
+                            Claimed
+                        </div>
+                    )}
+                     {status === 'queued' && (
+                        <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">
+                           Awaiting Upload
                         </div>
                     )}
                     {status === 'error' && (

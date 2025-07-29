@@ -3,7 +3,7 @@ export type ImageStatus = 'queued' | 'in-progress' | 'uploaded' | 'error';
 export type ImageFile = {
   id: string;
   name: string;
-  // Can be a remote URL or a local Data URL
+  // This will now store the WebDAV path or a placeholder for display
   url: string; 
   status: ImageStatus;
   claimedBy?: string;
