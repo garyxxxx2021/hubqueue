@@ -9,7 +9,7 @@ import { Loader2, GitBranch, Upload, CheckCircle2, XCircle, Trash2, User, Refres
 interface ImageCardProps {
   image: ImageFile;
   onClaim: (id: string) => void;
-  onUpload: (id: string) => void; // Kept for potential re-upload logic
+  onUpload: (id: string) => void; 
   onDelete: (id: string) => void;
 }
 
@@ -28,21 +28,15 @@ export function ImageCard({ image, onClaim, onUpload, onDelete }: ImageCardProps
     return imageName.split('.')[0].replace(/-/g, ' ').split(' ').slice(0, 2).join(' ');
   };
 
-  // This would need to be implemented fully with local file access if re-upload is desired
   const handleRetryUpload = () => {
-    // onUpload(id); 
-    alert("Re-upload functionality needs to be connected to a file source.");
+    onUpload(id); 
   }
 
   return (
     <Card className="flex flex-col overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 rounded-lg">
       <CardContent className="p-0">
         <div className="aspect-video relative">
-           {/* The URL is now just a placeholder as the image is on WebDAV */}
-          <Image src={url} alt={name} fill className="object-cover bg-muted" data-ai-hint={getAiHint(name)} />
-           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-              <span className="text-white text-xs font-semibold drop-shadow-md p-2 text-center">Preview not available (on WebDAV)</span>
-           </div>
+          <Image src={url} alt={name} fill className="object-cover bg-muted" data-ai-hint={getAiHint(name)} unoptimized />
         </div>
       </CardContent>
       <div className="p-4 flex-1 flex flex-col">
