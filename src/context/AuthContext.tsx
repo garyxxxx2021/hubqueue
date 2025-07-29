@@ -41,50 +41,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-        const storedUser = Cookies.get(USER_COOKIE_KEY);
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-    } catch (error) {
-        console.error("Failed to parse user from cookie", error);
-        Cookies.remove(USER_COOKIE_KEY);
-    }
-    setIsLoading(false);
+    const loadUserFromCookie = () => {
+      try {
+          const storedUser = Cookies.get(USER_COOKIE_KEY);
+          if (storedUser) {
+              setUser(JSON.parse(storedUser));
+          }
+      } catch (error) {
+          console.error("Failed to parse user from cookie", error);
+          Cookies.remove(USER_COOKIE_KEY);
+      }
+      setIsLoading(false);
+    };
+
+    loadUserFromCookie();
   }, []);
 
   const updateUserStatus = async (username: string) => {
     if (user && user.username === username) {
+      try {
+        const users = await getUsers();
+        const foundUser = users.find(u => u.username === username);
+        if (foundUser) {
+          const userData = { 
+            username: foundUser.username, 
+            isAdmin: foundUser.isAdmin, 
+            isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+          };
+          Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error("Failed to update user status:", error);
+      }
+    }
+  };
+  
+  const login = async (username: string, password_input: string): Promise<boolean> => {
+    try {
       const users = await getUsers();
-      const foundUser = users.find(u => u.username === username);
+      const passwordHash = await hashPassword(password_input);
+      const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
+
       if (foundUser) {
         const userData = { 
           username: foundUser.username, 
           isAdmin: foundUser.isAdmin, 
           isTrusted: foundUser.isAdmin || foundUser.isTrusted 
         };
-        Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 });
+        Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
         setUser(userData);
+        return true;
       }
+      return false;
+    } catch (error) {
+      console.error("Login failed:", error);
+      return false;
     }
-  };
-  
-  const login = async (username: string, password_input: string): Promise<boolean> => {
-    const users = await getUsers();
-    const passwordHash = await hashPassword(password_input);
-    const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
-
-    if (foundUser) {
-      const userData = { 
-        username: foundUser.username, 
-        isAdmin: foundUser.isAdmin, 
-        isTrusted: foundUser.isAdmin || foundUser.isTrusted 
-      };
-      Cookies.set(USER_COOKIE_KEY, JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
-      setUser(userData);
-      return true;
-    }
-    return false;
   };
 
   const register = async (username: string, password_input: string): Promise<{ success: boolean; message: string }> => {
