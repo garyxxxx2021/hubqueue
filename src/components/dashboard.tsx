@@ -49,7 +49,11 @@ export default function Dashboard() {
           
           if (getSoundPreference()) {
             const audio = new Audio('/notification.mp3');
-            audio.play().catch(error => console.error("Failed to play sound:", error));
+            audio.play().catch(error => {
+              // Gracefully handle cases where the sound file might not exist or fails to play.
+              // This prevents console errors for the user.
+              console.error("Audio playback failed:", error.message);
+            });
           }
         }
       }
