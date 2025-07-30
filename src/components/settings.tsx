@@ -61,26 +61,24 @@ export default function Settings() {
   if (!isClient) {
     return (
        <div className="container mx-auto py-8 px-4 md:px-6">
-        {user?.isAdmin && (
-             <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle>系统设置</CardTitle>
-                    <CardDescription>管理整个应用程序的全局设置。</CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <div className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                            <Wrench className="h-6 w-6 text-muted-foreground" />
-                            <div>
-                               <Skeleton className="h-5 w-24 mb-1" />
-                               <Skeleton className="h-4 w-64" />
-                            </div>
+         <Card className="mb-8">
+            <CardHeader>
+                <CardTitle>系统设置</CardTitle>
+                <CardDescription>管理整个应用程序的全局设置。</CardDescription>
+            </CardHeader>
+            <CardContent>
+               <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Wrench className="h-6 w-6 text-muted-foreground" />
+                        <div>
+                           <Skeleton className="h-5 w-24 mb-1" />
+                           <Skeleton className="h-4 w-64" />
                         </div>
-                        <Skeleton className="h-6 w-11" />
                     </div>
-                </CardContent>
-            </Card>
-        )}
+                    <Skeleton className="h-6 w-11" />
+                </div>
+            </CardContent>
+        </Card>
         <Card>
             <CardHeader>
                 <CardTitle>通知设置</CardTitle>
