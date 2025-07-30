@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -21,19 +21,22 @@ export default function LoginPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login, user, isLoading: isAuthLoading, isMaintenanceMode } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
   useEffect(() => {
     if (!isAuthLoading && user) {
-      router.push('/dashboard');
+      router.push(callbackUrl);
     }
-  }, [user, isAuthLoading, router]);
+  }, [user, isAuthLoading, router, callbackUrl]);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
     const result = await login(username, password);
     if (result.success) {
-      router.push('/dashboard');
+      router.push(callbackUrl);
     } else {
       toast({
         variant: "destructive",
