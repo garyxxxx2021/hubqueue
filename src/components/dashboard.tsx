@@ -293,7 +293,6 @@ export default function Dashboard() {
   };
 
   const handleDeleteImage = async (id: string) => {
-     // This function is kept for potential future use but is not called from the UI.
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
     setIsSyncing(true);
@@ -304,8 +303,8 @@ export default function Dashboard() {
         if(saveSuccess) {
             setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
             toast({
-                title: "图片已删除",
-                description: `${imageToDelete.name} 已被移除。`,
+                title: "图片已从索引中删除",
+                description: `${imageToDelete.name} 的记录已被移除。`,
             });
         } else {
             throw new Error(saveError || "无法更新图片列表。");
