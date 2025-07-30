@@ -108,6 +108,7 @@ export default function Dashboard() {
     return () => {
       if (ablyRef.current) {
         ablyRef.current.close();
+        ablyRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
