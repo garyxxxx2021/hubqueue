@@ -75,12 +75,12 @@ export default function Header() {
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>个人设置</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/history')}>
-                      <History className="mr-2 h-4 w-4" />
-                      <span>历史记录</span>
-                    </DropdownMenuItem>
                   {user.isAdmin && (
                     <>
+                      <DropdownMenuItem onClick={() => router.push('/history')}>
+                        <History className="mr-2 h-4 w-4" />
+                        <span>历史记录</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => router.push('/users')}>
                         <Users className="mr-2 h-4 w-4" />
                         <span>用户管理</span>

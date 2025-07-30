@@ -18,14 +18,18 @@ export default function History() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthLoading && !user) {
-      router.push('/login');
+    if (!isAuthLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (!user.isAdmin) {
+        router.push('/dashboard');
+      }
     }
   }, [user, isAuthLoading, router]);
 
   useEffect(() => {
     async function fetchData() {
-      if (user) {
+      if (user?.isAdmin) {
         setIsLoading(true);
         try {
            const [historyList, userList] = await Promise.all([getHistoryList(), getUsers()]);
@@ -78,12 +82,8 @@ export default function History() {
     </div>
   );
 
-  if (isAuthLoading || isLoading) {
+  if (isAuthLoading || isLoading || !user?.isAdmin) {
     return renderSkeleton();
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (
