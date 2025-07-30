@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles, getClient } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -255,12 +255,7 @@ export default function Dashboard() {
         // First, delete the file from storage
         const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
         if (!deleteSuccess) {
-            // If deletion fails, we don't proceed, as it could lead to orphaned history entries.
-            // But we check if the file is already gone, in which case we can proceed.
-            const client = getClient();
-            if (await client.exists(imageToComplete.webdavPath)) {
-                throw new Error(deleteError || `无法从存储中删除文件。`);
-            }
+            throw new Error(deleteError || `无法从存储中删除文件。`);
         }
         
         // Then, remove the image from the list and move to history
