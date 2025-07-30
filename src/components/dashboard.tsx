@@ -239,27 +239,33 @@ export default function Dashboard() {
   
   const handleCompleteImage = async (id: string) => {
     const imageToComplete = images.find(img => img.id === id);
-    if (!imageToComplete || !user) return;
+    if (!imageToComplete) return;
 
     setIsSyncing(true);
 
     try {
+        // First, delete the file from storage
+        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
+        if (!deleteSuccess) {
+            throw new Error(deleteError || `无法从存储中删除文件。`);
+        }
+        
+        // Then, remove the image from the list and save
         const currentImages = await getImageList();
-        const updatedImages = currentImages.map(img =>
-            img.id === id
-                ? { ...img, status: 'completed', completedBy: user.username, completedAt: Date.now() }
-                : img
-        );
+        const updatedImages = currentImages.filter(img => img.id !== id);
 
-        const { success, error } = await saveImageList(updatedImages);
-        if (success) {
+        const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
+        if (saveSuccess) {
             setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
             toast({
                 title: "任务已完成",
-                description: `${imageToComplete.name} 已被标记为完成。`,
+                description: `${imageToComplete.name} 已被完成并移除。`,
             });
         } else {
-            throw new Error(error || "无法更新图片列表。");
+            // This part is tricky. The file is deleted but the list is not updated.
+            // We should probably try to re-add the file or at least notify the user of the inconsistency.
+            // For now, we'll just show an error and fetch the (now inconsistent) state.
+            throw new Error(saveError || "无法更新图片列表。文件已被删除，但记录可能仍然存在。");
         }
     } catch (error: any) {
          toast({
@@ -267,7 +273,7 @@ export default function Dashboard() {
             title: "操作失败",
             description: error.message,
         });
-        await fetchImages(false);
+        await fetchImages(false); // Refetch to get the latest state
     } finally {
         setIsSyncing(false);
     }
@@ -363,3 +369,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    

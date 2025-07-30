@@ -1,4 +1,4 @@
-export type ImageStatus = 'queued' | 'in-progress' | 'uploaded' | 'error' | 'completed';
+export type ImageStatus = 'queued' | 'in-progress' | 'uploaded' | 'error';
 
 export type ImageFile = {
   id: string;
@@ -10,6 +10,6 @@ export type ImageFile = {
   claimedBy?: string;
   isUploading?: boolean;
   createdAt?: number; // Timestamp for sorting
-  completedBy?: string;
-  completedAt?: number;
 };
+
+    
