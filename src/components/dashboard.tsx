@@ -92,25 +92,25 @@ export default function Dashboard() {
     
     initialFetch();
 
-    // Setup Ably client
-    ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
+    if (!ablyRef.current) {
+      ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
 
-    ablyRef.current.connection.on('connected', () => {
-      console.log('Connected to Ably!');
-    });
+      ablyRef.current.connection.on('connected', () => {
+        console.log('Connected to Ably!');
+      });
 
-    const channel = ablyRef.current.channels.get('hubqueue:updates');
-    channel.subscribe('update', (message) => {
-      console.log('Update notification received via Ably');
-      fetchImages(true);
-    });
+      const channel = ablyRef.current.channels.get('hubqueue:updates');
+      channel.subscribe('update', (message) => {
+        console.log('Update notification received via Ably');
+        fetchImages(true);
+      });
+    }
 
-    return () => {
-      if (ablyRef.current) {
-        ablyRef.current.close();
-        ablyRef.current = null;
-      }
-    };
+    // By not including a cleanup function, we prevent the connection
+    // from being closed on component unmount, which is better for SPA navigation
+    // and avoids issues with React Strict Mode's double-invocation.
+    // The connection will be closed by the browser when the user leaves the page.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -286,28 +286,28 @@ export default function Dashboard() {
   const handleDeleteImage = async (id: string) => {
     setIsSyncing(true);
     try {
-        const currentImages = await getImageList();
-        const imageToDelete = currentImages.find(img => img.id === id);
-        if (!imageToDelete) {
-             toast({ variant: "destructive", title: "错误", description: "找不到要删除的记录。" });
-             return;
-        }
+      const currentImages = await getImageList();
+      const imageToDelete = currentImages.find(img => img.id === id);
+      if (!imageToDelete) {
+        toast({ variant: "destructive", title: "错误", description: "找不到要删除的记录。" });
+        return;
+      }
 
-        const updatedImages = currentImages.filter(img => img.id !== id);
-        const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
+      const updatedImages = currentImages.filter(img => img.id !== id);
+      const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
 
-        if(!saveSuccess) {
-            throw new Error(saveError || "无法更新图片列表。");
-        }
+      if (!saveSuccess) {
+        throw new Error(saveError || "无法更新图片列表。");
+      }
     } catch (error: any) {
-         toast({
-            variant: "destructive",
-            title: "删除失败",
-            description: error.message,
-        });
-        await fetchImages(false);
+      toast({
+        variant: "destructive",
+        title: "删除失败",
+        description: error.message,
+      });
+      await fetchImages(false);
     } finally {
-        setIsSyncing(false);
+      setIsSyncing(false);
     }
   };
   
