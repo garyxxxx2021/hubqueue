@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, getHistoryList, saveHistoryList, deleteWebdavFile } from '@/services/webdav';
+import { getImageList, saveImageList, getHistoryList, saveHistoryList } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -80,7 +80,7 @@ export default function Dashboard() {
   }, [toast]);
 
   const connectWebSocket = useCallback(() => {
-    const protocol = window.location.protocol === 'https' ? 'wss' : 'ws';
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const host = window.location.host;
     const wsUrl = `${protocol}://${host}`;
     
@@ -265,7 +265,6 @@ export default function Dashboard() {
             return;
         }
 
-        // We don't delete files from storage anymore
         const currentHistory = await getHistoryList();
         
         const completedImageRecord: ImageFile = {
