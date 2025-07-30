@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,12 +8,9 @@ import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
-import { RefreshCw, BellRing } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { Card } from './ui/card';
-import { Label } from './ui/label';
-import { Switch } from './ui/switch';
-import { getNotificationPreference, setNotificationPreference } from '@/lib/notifications';
+import { getNotificationPreference } from '@/lib/notifications';
 
 
 const POLLING_INTERVAL = 5000; // 5 seconds
@@ -35,17 +33,21 @@ export default function Dashboard() {
       const imageList = await getImageList();
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
-      const oldImageIds = new Set(imagesRef.current.map(img => img.id));
-      const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
-      
       const notificationsEnabled = getNotificationPreference();
-      if (newImages.length > 0 && notificationsEnabled && document.visibilityState === 'visible' && Notification.permission === 'granted') {
-        const newImageNames = newImages.map(img => img.name).join(', ');
-        new Notification('HubQueue - 有新图片', {
-          body: `新图片已上传: ${newImageNames}`,
-          icon: '/favicon.ico'
-        });
+
+      if (notificationsEnabled && document.visibilityState === 'visible' && Notification.permission === 'granted') {
+        const oldImageIds = new Set(imagesRef.current.map(img => img.id));
+        const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
+        
+        if (newImages.length > 0) {
+          const newImageNames = newImages.map(img => img.name).join(', ');
+          new Notification('HubQueue - 有新图片', {
+            body: `新图片已上传: ${newImageNames}`,
+            icon: '/favicon.ico'
+          });
+        }
       }
+
 
       if (JSON.stringify(migratedImageList) !== JSON.stringify(imagesRef.current)) {
         setImages(migratedImageList);
