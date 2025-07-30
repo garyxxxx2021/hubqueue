@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles, getClient } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
