@@ -10,7 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { ShieldCheck, User as UserIcon } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Trash2, Ban } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function UserManagement() {
   const { user, isLoading: isAuthLoading, updateUserStatus } = useAuth();
@@ -109,6 +121,66 @@ export default function UserManagement() {
     setUpdatingStates(prev => ({ ...prev, [`admin-${username}`]: false }));
   };
 
+  const handleBanToggle = async (username: string, isBanned: boolean) => {
+    setUpdatingStates(prev => ({ ...prev, [`ban-${username}`]: true }));
+    const originalUsers = [...users];
+    const updatedUsers = users.map(u => 
+        u.username === username ? { ...u, isBanned } : u
+    );
+    setUsers(updatedUsers);
+
+    const { success, error } = await saveUsers(updatedUsers);
+    
+    if (!success) {
+        toast({
+            variant: 'destructive',
+            title: '更新失败',
+            description: error || '无法保存用户封禁状态。',
+        });
+        setUsers(originalUsers);
+    } else {
+         toast({
+            title: '更新成功',
+            description: `用户 ${username} 已被${isBanned ? '封禁' : '解封'}。`,
+        });
+        await fetchUsers();
+    }
+    setUpdatingStates(prev => ({ ...prev, [`ban-${username}`]: false }));
+  };
+
+  const handleDeleteUser = async (username: string) => {
+    if (user?.username === username) {
+        toast({
+            variant: 'destructive',
+            title: '操作失败',
+            description: '您不能删除自己。',
+        });
+        return;
+    }
+
+    setUpdatingStates(prev => ({ ...prev, [`delete-${username}`]: true }));
+    const originalUsers = [...users];
+    const updatedUsers = users.filter(u => u.username !== username);
+    setUsers(updatedUsers);
+
+    const { success, error } = await saveUsers(updatedUsers);
+    if (!success) {
+        toast({
+            variant: 'destructive',
+            title: '删除失败',
+            description: error || '无法删除用户。',
+        });
+        setUsers(originalUsers);
+    } else {
+        toast({
+            title: '删除成功',
+            description: `用户 ${username} 已被删除。`,
+        });
+        await fetchUsers();
+    }
+    setUpdatingStates(prev => ({ ...prev, [`delete-${username}`]: false }));
+  };
+
   if (isAuthLoading || isLoading) {
     return (
         <div className="container mx-auto py-8 px-4 md:px-6">
@@ -125,6 +197,8 @@ export default function UserManagement() {
                             <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                             <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
                             <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
+                            <TableHead className="text-right"><Skeleton className="h-4 w-16" /></TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -134,6 +208,8 @@ export default function UserManagement() {
                                 <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                                 <TableCell className="text-right"><Skeleton className="h-6 w-11 ml-auto" /></TableCell>
                                 <TableCell className="text-right"><Skeleton className="h-6 w-11 ml-auto" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-6 w-11 ml-auto" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                             </TableRow>
                         ))}
                         </TableBody>
@@ -153,7 +229,7 @@ export default function UserManagement() {
         <Card>
             <CardHeader>
             <CardTitle>用户管理</CardTitle>
-            <CardDescription>管理用户的角色和权限。</CardDescription>
+            <CardDescription>管理用户的角色、权限和状态。</CardDescription>
             </CardHeader>
             <CardContent>
             <Table>
@@ -161,15 +237,18 @@ export default function UserManagement() {
                 <TableRow>
                     <TableHead>用户</TableHead>
                     <TableHead>角色</TableHead>
-                    <TableHead className="text-right">可信</TableHead>
-                    <TableHead className="text-right">管理员</TableHead>
+                    <TableHead className="text-center">可信</TableHead>
+                    <TableHead className="text-center">管理员</TableHead>
+                    <TableHead className="text-center">封禁</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
                 {users.map((u, index) => {
                     const isInitialAdmin = index === 0;
+                    const isSelf = u.username === user?.username;
                     return (
-                        <TableRow key={u.username}>
+                        <TableRow key={u.username} className={u.isBanned ? 'bg-destructive/10' : ''}>
                         <TableCell className="font-medium">{u.username}</TableCell>
                         <TableCell>
                             {u.isAdmin ? (
@@ -182,7 +261,7 @@ export default function UserManagement() {
                                 </span>
                             )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                              <Switch
                                 checked={u.isTrusted || u.isAdmin}
                                 onCheckedChange={(checked) => handleTrustToggle(u.username, checked)}
@@ -190,13 +269,48 @@ export default function UserManagement() {
                                 aria-label={`Toggle trusted status for ${u.username}`}
                             />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                              <Switch
                                 checked={u.isAdmin}
                                 onCheckedChange={(checked) => handleAdminToggle(u.username, checked)}
                                 disabled={updatingStates[`admin-${u.username}`] || isInitialAdmin}
                                 aria-label={`Toggle admin status for ${u.username}`}
                             />
+                        </TableCell>
+                        <TableCell className="text-center">
+                             <Switch
+                                checked={!!u.isBanned}
+                                onCheckedChange={(checked) => handleBanToggle(u.username, checked)}
+                                disabled={updatingStates[`ban-${u.username}`] || isInitialAdmin || isSelf}
+                                aria-label={`Toggle banned status for ${u.username}`}
+                            />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={isInitialAdmin || isSelf || updatingStates[`delete-${u.username}`]}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">删除用户</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>确定要删除用户 {u.username} 吗？</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  此操作无法撤销。这将永久删除该用户账户，但不会删除其历史操作记录。
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteUser(u.username)}>确认删除</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </TableCell>
                         </TableRow>
                     );

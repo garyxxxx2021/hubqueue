@@ -14,6 +14,7 @@ export interface StoredUser {
   username: string;
   isAdmin: boolean;
   isTrusted: boolean;
+  isBanned?: boolean;
   passwordHash: string;
 }
 

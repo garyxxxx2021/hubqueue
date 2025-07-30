@@ -14,7 +14,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isMaintenanceMode: boolean;
-  login: (username: string, password_input: string) => Promise<boolean>;
+  login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
@@ -57,6 +57,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
+        if (foundUser.isBanned) {
+           Cookies.remove(USER_COOKIE_KEY);
+           setUser(null);
+           return false;
+        }
+
         const userData = { 
           username: foundUser.username, 
           isAdmin: foundUser.isAdmin, 
@@ -120,7 +126,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
   
-  const login = async (username: string, password_input: string): Promise<boolean> => {
+  const login = async (username: string, password_input: string): Promise<{success: boolean, message?: string}> => {
     setIsLoading(true);
     try {
       const users = await getUsers();
@@ -128,6 +134,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
       if (foundUser) {
+        if (foundUser.isBanned) {
+            return { success: false, message: '您的账户已被封禁。' };
+        }
+
         const userData = { 
           username: foundUser.username, 
           isAdmin: foundUser.isAdmin, 
@@ -139,12 +149,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Also fetch maintenance status on login
         const status = await getMaintenanceStatus();
         setIsMaintenanceMode(status.isMaintenance);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: '无效的用户名或密码。' };
     } catch (error) {
       console.error("Login failed:", error);
-      return false;
+      return { success: false, message: '登录时发生错误。' };
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +182,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             passwordHash,
             isAdmin,
             isTrusted,
+            isBanned: false,
         };
         
         const currentUsers = await getUsers();
