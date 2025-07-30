@@ -67,18 +67,14 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                   <DropdownMenuItem asChild>
-                      <Link href="/settings">
-                        <SettingsIcon className="mr-2 h-4 w-4" />
-                        <span>设置</span>
-                      </Link>
+                   <DropdownMenuItem onClick={() => router.push('/settings')}>
+                      <SettingsIcon className="mr-2 h-4 w-4" />
+                      <span>设置</span>
                     </DropdownMenuItem>
                   {user.isAdmin && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/users">
-                        <Users className="mr-2 h-4 w-4" />
-                        <span>用户管理</span>
-                      </Link>
+                    <DropdownMenuItem onClick={() => router.push('/users')}>
+                      <Users className="mr-2 h-4 w-4" />
+                      <span>用户管理</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
