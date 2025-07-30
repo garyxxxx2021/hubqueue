@@ -18,7 +18,7 @@ export default function Settings() {
         setNotificationPermission(Notification.permission);
         setNotificationsEnabled(getNotificationPreference() && Notification.permission === 'granted');
     }
-  }, []);
+  }, [notificationPermission]);
 
   const handleNotificationToggle = async (enabled: boolean) => {
     if (enabled) {
