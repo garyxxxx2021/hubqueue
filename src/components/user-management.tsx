@@ -33,7 +33,7 @@ const roleLabels: Record<UserRole, string> = {
 
 const roleIcons: Record<UserRole, React.ReactNode> = {
     admin: <ShieldCheck className="h-4 w-4 text-primary" />,
-    trusted: <UserIcon className="h-4 w-4 text-blue-500" />,
+    trusted: <UserIcon className="h-4 w-4 text-green-500" />,
     user: <UserIcon className="h-4 w-4 text-muted-foreground" />,
     banned: <Ban className="h-4 w-4 text-destructive" />,
 };
