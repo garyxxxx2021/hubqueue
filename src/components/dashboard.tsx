@@ -10,7 +10,6 @@ import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getNotificationPreference } from '@/lib/notifications';
 
 
 const POLLING_INTERVAL = 5000; // 5 seconds
@@ -33,21 +32,18 @@ export default function Dashboard() {
       const imageList = await getImageList();
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
-      const notificationsEnabled = getNotificationPreference();
-
-      if (notificationsEnabled && document.visibilityState === 'visible' && Notification.permission === 'granted') {
+      if (document.visibilityState === 'visible') {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
         if (newImages.length > 0) {
           const newImageNames = newImages.map(img => img.name).join(', ');
-          new Notification('HubQueue - 有新图片', {
-            body: `新图片已上传: ${newImageNames}`,
-            icon: '/favicon.ico'
+          toast({
+            title: '有新图片加入队列',
+            description: `新图片: ${newImageNames}`,
           });
         }
       }
-
 
       if (JSON.stringify(migratedImageList) !== JSON.stringify(imagesRef.current)) {
         setImages(migratedImageList);
