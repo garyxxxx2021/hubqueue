@@ -10,7 +10,7 @@ import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getSoundPreference } from '@/lib/preferences';
+import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
 
 
 const POLLING_INTERVAL = 5000; // 5 seconds
@@ -37,14 +37,20 @@ export default function Dashboard() {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
-        if (newImages.length > 0 && getSoundPreference()) {
+        if (newImages.length > 0) {
           const newImageNames = newImages.map(img => img.name).join(', ');
-          toast({
-            title: '有新图片加入队列',
-            description: `新图片: ${newImageNames}`,
-          });
-          const audio = new Audio('/notification.mp3');
-          audio.play().catch(error => console.error("Failed to play sound:", error));
+          
+          if (getNotificationPreference()) {
+            toast({
+              title: '有新图片加入队列',
+              description: `新图片: ${newImageNames}`,
+            });
+          }
+          
+          if (getSoundPreference()) {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(error => console.error("Failed to play sound:", error));
+          }
         }
       }
 

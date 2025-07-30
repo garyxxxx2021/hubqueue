@@ -5,29 +5,31 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { getSoundPreference, setSoundPreference } from '@/lib/preferences';
-import { BellRing, BellOff } from 'lucide-react';
+import { getSoundPreference, setSoundPreference, getNotificationPreference, setNotificationPreference } from '@/lib/preferences';
+import { BellRing, BellOff, Volume2, VolumeX } from 'lucide-react';
 
 export default function Settings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // This effect runs only on the client after mounting.
-    // It prevents hydration mismatch by ensuring that the state
-    // is only set after the component has mounted on the client.
     setIsClient(true);
-    setNotificationsEnabled(getSoundPreference());
+    setNotificationsEnabled(getNotificationPreference());
+    setSoundEnabled(getSoundPreference());
   }, []);
 
   const handleNotificationToggle = (enabled: boolean) => {
     setNotificationsEnabled(enabled);
+    setNotificationPreference(enabled);
+  };
+
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled);
     setSoundPreference(enabled);
   };
 
   if (!isClient) {
-    // Render nothing on the server to avoid hydration mismatch.
-    // The component will be fully rendered on the client.
     return null;
   }
 
@@ -38,20 +40,35 @@ export default function Settings() {
                 <CardTitle>设置</CardTitle>
                 <CardDescription>管理您的账户和应用偏好。</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
                          {notificationsEnabled ? <BellRing className="h-6 w-6 text-primary" /> : <BellOff className="h-6 w-6 text-muted-foreground" />}
                         <div>
-                            <Label htmlFor="sound-notification" className="font-semibold">新图片上传提醒</Label>
-                            <p className="text-sm text-muted-foreground">当有新图片上传到队列时，接收弹窗和音效提醒。</p>
+                            <Label htmlFor="toast-notification" className="font-semibold">新图片上传提醒</Label>
+                            <p className="text-sm text-muted-foreground">当有新图片上传到队列时，接收弹窗提醒。</p>
+                        </div>
+                    </div>
+                    <Switch
+                        id="toast-notification"
+                        checked={notificationsEnabled}
+                        onCheckedChange={handleNotificationToggle}
+                        aria-label="Toggle new image toast notifications"
+                    />
+                </div>
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                         {soundEnabled ? <Volume2 className="h-6 w-6 text-primary" /> : <VolumeX className="h-6 w-6 text-muted-foreground" />}
+                        <div>
+                            <Label htmlFor="sound-notification" className="font-semibold">提醒音效</Label>
+                            <p className="text-sm text-muted-foreground">当有新图片上传到队列时，播放音效提醒。</p>
                         </div>
                     </div>
                     <Switch
                         id="sound-notification"
-                        checked={notificationsEnabled}
-                        onCheckedChange={handleNotificationToggle}
-                        aria-label="Toggle new image notifications"
+                        checked={soundEnabled}
+                        onCheckedChange={handleSoundToggle}
+                        aria-label="Toggle new image sound notification"
                     />
                 </div>
             </CardContent>
