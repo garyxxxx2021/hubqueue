@@ -208,16 +208,17 @@ export default function UserManagement() {
                                         disabled={isInitialAdmin || updatingStates[u.username]}
                                     >
                                         <SelectTrigger className="w-[140px] h-9">
-                                            <div className="flex items-center gap-2">
-                                                {roleIcons[u.role]}
-                                                <SelectValue placeholder="选择角色" />
-                                            </div>
+                                           <div className="flex items-center gap-2">
+                                              {roleIcons[u.role]}
+                                              <SelectValue />
+                                           </div>
                                         </SelectTrigger>
                                         <SelectContent>
                                             {(Object.keys(roleLabels) as UserRole[]).map(role => (
                                                 <SelectItem key={role} value={role}>
                                                     <div className="flex items-center gap-2">
-                                                       {roleIcons[role]} {roleLabels[role]}
+                                                       {roleIcons[role]}
+                                                       <span>{roleLabels[role]}</span>
                                                     </div>
                                                 </SelectItem>
                                             ))}
