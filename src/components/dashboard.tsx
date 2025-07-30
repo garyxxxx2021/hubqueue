@@ -52,7 +52,6 @@ export default function Dashboard() {
             audio.play().catch(error => {
               // Gracefully handle cases where the sound file might not exist or fails to play.
               // This prevents console errors for the user.
-              console.error("Audio playback failed:", error.message);
             });
           }
         }
