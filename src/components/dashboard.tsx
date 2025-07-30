@@ -12,63 +12,20 @@ import { useAuth } from '@/context/AuthContext';
 import { Card } from './ui/card';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
+import { getNotificationPreference, setNotificationPreference } from '@/lib/notifications';
+
 
 const POLLING_INTERVAL = 5000; // 5 seconds
-const NOTIFICATION_LS_KEY = 'hubqueue_notifications_enabled';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState('default');
   const { toast } = useToast();
   
   const imagesRef = useRef(images);
   imagesRef.current = images;
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.Notification) {
-        setNotificationPermission(Notification.permission);
-        const savedPref = localStorage.getItem(NOTIFICATION_LS_KEY);
-        if (savedPref === 'true' && Notification.permission === 'granted') {
-            setNotificationsEnabled(true);
-        }
-    }
-  }, []);
-
-  const handleNotificationToggle = async (enabled: boolean) => {
-    if (enabled) {
-      if (notificationPermission === 'granted') {
-        setNotificationsEnabled(true);
-        localStorage.setItem(NOTIFICATION_LS_KEY, 'true');
-      } else if (notificationPermission !== 'denied') {
-        const permission = await Notification.requestPermission();
-        setNotificationPermission(permission);
-        if (permission === 'granted') {
-          setNotificationsEnabled(true);
-          localStorage.setItem(NOTIFICATION_LS_KEY, 'true');
-        } else {
-            toast({
-                variant: 'destructive',
-                title: '通知权限被拒绝',
-                description: '您需要允许通知才能启用此功能。',
-            });
-        }
-      } else {
-         toast({
-            variant: 'destructive',
-            title: '通知权限被阻止',
-            description: '请在您的浏览器设置中允许通知。',
-        });
-      }
-    } else {
-      setNotificationsEnabled(false);
-      localStorage.setItem(NOTIFICATION_LS_KEY, 'false');
-    }
-  };
-
 
   const fetchImages = useCallback(async (showSyncingIndicator = false) => {
     if (showSyncingIndicator) {
@@ -80,8 +37,9 @@ export default function Dashboard() {
       
       const oldImageIds = new Set(imagesRef.current.map(img => img.id));
       const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
-
-      if (newImages.length > 0 && notificationsEnabled && document.visibilityState === 'visible') {
+      
+      const notificationsEnabled = getNotificationPreference();
+      if (newImages.length > 0 && notificationsEnabled && document.visibilityState === 'visible' && Notification.permission === 'granted') {
         const newImageNames = newImages.map(img => img.name).join(', ');
         new Notification('HubQueue - 有新图片', {
           body: `新图片已上传: ${newImageNames}`,
@@ -106,7 +64,7 @@ export default function Dashboard() {
         setIsSyncing(false);
       }
     }
-  }, [toast, notificationsEnabled]);
+  }, [toast]);
 
   useEffect(() => {
     const initialFetch = async () => {
@@ -307,25 +265,6 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
-      {user?.isTrusted && (
-        <Card className="mb-8 p-4">
-             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <BellRing className="h-6 w-6 text-muted-foreground" />
-                    <div>
-                        <Label htmlFor="notification-switch" className="font-semibold">新图片上传提醒</Label>
-                        <p className="text-sm text-muted-foreground">当有新图片上传到队列时，接收浏览器通知。</p>
-                    </div>
-                </div>
-                <Switch
-                    id="notification-switch"
-                    checked={notificationsEnabled}
-                    onCheckedChange={handleNotificationToggle}
-                    disabled={notificationPermission === 'denied'}
-                />
-            </div>
-        </Card>
-      )}
       <ImageUploader onImageUploaded={handleImageUploaded} />
       {isLoading ? (
         <div className="mt-8">
