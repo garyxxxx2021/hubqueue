@@ -35,7 +35,7 @@ export default function Settings() {
        <div className="container mx-auto py-8 px-4 md:px-6">
         <Card>
             <CardHeader>
-                <CardTitle>通知设置</CardTitle>
+                <CardTitle>个人设置</CardTitle>
                 <CardDescription>管理您的账户和应用偏好。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -69,7 +69,7 @@ export default function Settings() {
     <div className="container mx-auto py-8 px-4 md:px-6">
         <Card>
             <CardHeader>
-                <CardTitle>通知设置</CardTitle>
+                <CardTitle>个人设置</CardTitle>
                 <CardDescription>管理您的账户和应用偏好。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
