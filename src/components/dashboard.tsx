@@ -93,21 +93,22 @@ export default function Dashboard() {
     initialFetch();
 
     // Setup Ably client
-    const ably = new Ably.Realtime({ authUrl: '/api/ably-auth' });
-    ablyRef.current = ably;
+    ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
 
-    ably.connection.on('connected', () => {
+    ablyRef.current.connection.on('connected', () => {
       console.log('Connected to Ably!');
     });
 
-    const channel = ably.channels.get('hubqueue:updates');
+    const channel = ablyRef.current.channels.get('hubqueue:updates');
     channel.subscribe('update', (message) => {
       console.log('Update notification received via Ably');
       fetchImages(true);
     });
 
     return () => {
-      ably.close();
+      if (ablyRef.current) {
+        ablyRef.current.close();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
