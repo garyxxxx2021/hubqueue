@@ -23,10 +23,6 @@ export default function Header() {
     logout();
     router.push('/login');
   }
-  
-  const handleNavigate = (path: string) => {
-    router.push(path);
-  }
 
   const getRoleLabel = () => {
     if (!user) return '';
@@ -71,14 +67,18 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                   <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
-                      <SettingsIcon className="mr-2 h-4 w-4" />
-                      <span>设置</span>
+                   <DropdownMenuItem asChild>
+                      <Link href="/settings">
+                        <SettingsIcon className="mr-2 h-4 w-4" />
+                        <span>设置</span>
+                      </Link>
                     </DropdownMenuItem>
                   {user.isAdmin && (
-                    <DropdownMenuItem onClick={() => handleNavigate('/users')}>
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>用户管理</span>
+                    <DropdownMenuItem asChild>
+                      <Link href="/users">
+                        <Users className="mr-2 h-4 w-4" />
+                        <span>用户管理</span>
+                      </Link>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
