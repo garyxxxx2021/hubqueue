@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, uploadToWebdav, deleteWebdavFile } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -53,7 +53,6 @@ export default function Dashboard() {
             const audio = new Audio('/notification.mp3');
             audio.play().catch(error => {
               // Gracefully handle cases where the sound file might not exist or fails to play.
-              // This prevents console errors for the user.
             });
           }
         }
@@ -235,6 +234,42 @@ export default function Dashboard() {
     }
   };
   
+  const handleCompleteImage = async (id: string) => {
+    const imageToComplete = images.find(img => img.id === id);
+    if (!imageToComplete || !user) return;
+
+    setIsSyncing(true);
+
+    try {
+        const currentImages = await getImageList();
+        const updatedImages = currentImages.map(img =>
+            img.id === id
+                ? { ...img, status: 'completed', completedBy: user.username, completedAt: Date.now() }
+                : img
+        );
+
+        const { success, error } = await saveImageList(updatedImages);
+        if (success) {
+            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
+            toast({
+                title: "任务已完成",
+                description: `${imageToComplete.name} 已被标记为完成。`,
+            });
+        } else {
+            throw new Error(error || "无法更新图片列表。");
+        }
+    } catch (error: any) {
+         toast({
+            variant: "destructive",
+            title: "操作失败",
+            description: error.message,
+        });
+        await fetchImages(false);
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
   const handleDeleteImage = async (id: string) => {
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
@@ -276,6 +311,8 @@ export default function Dashboard() {
       console.log("此操作已弃用，因为图片在加入队列前就已上传。", id)
   }
 
+  const activeImages = images.filter(img => img.status !== 'completed');
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <ImageUploader onImageUploaded={handleImageUploaded} />
@@ -302,10 +339,11 @@ export default function Dashboard() {
         </div>
       ) : (
         <ImageQueue
-          images={images}
+          images={activeImages}
           onClaim={handleClaimImage}
           onUnclaim={handleUnclaimImage}
           onUpload={handleUploadFromQueue}
+          onComplete={handleCompleteImage}
           onDelete={handleDeleteImage}
           isSyncing={isSyncing}
         />
