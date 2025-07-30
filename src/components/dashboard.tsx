@@ -250,18 +250,10 @@ export default function Dashboard() {
     setIsSyncing(true);
 
     try {
-        // First, delete the file from WebDAV storage.
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
-        
-        if (!deleteSuccess) {
-           // If the file is already deleted, we can proceed. Otherwise, throw error.
-            if (deleteError && !deleteError.includes('404')) {
-                 throw new Error(deleteError || `无法从存储中删除文件。`);
-            }
-        }
-        
-        // If file deletion is successful (or file was already gone), update the lists.
-        const [currentImages, currentHistory] = await Promise.all([getImageList(), getHistoryList()]);
+        const [currentImages, currentHistory] = await Promise.all([
+            getImageList(), 
+            getHistoryList()
+        ]);
         
         const completedImageRecord: ImageFile = {
             ...imageToComplete,
@@ -394,6 +386,8 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
 
     
 

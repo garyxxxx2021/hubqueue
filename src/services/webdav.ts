@@ -161,12 +161,16 @@ export async function cleanupOrphanedFiles(): Promise<void> {
             return;
         }
 
-        const [directoryContents, images] = await Promise.all([
+        const [directoryContents, images, history] = await Promise.all([
             client.getDirectoryContents(UPLOADS_DIR),
-            getImageList()
+            getImageList(),
+            getHistoryList()
         ]);
-
-        const knownImagePaths = new Set(images.map(img => img.webdavPath));
+        
+        const knownImagePaths = new Set([
+            ...images.map(img => img.webdavPath),
+            ...history.map(img => img.webdavPath)
+        ]);
 
         const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
 
@@ -238,5 +242,7 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     return { success: false, error: error.message };
   }
 }
+
+    
 
     
