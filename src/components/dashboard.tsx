@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList, cleanupOrphanedFiles } from '@/services/webdav';
+import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -83,8 +83,6 @@ export default function Dashboard() {
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
-      // Run cleanup first, but don't block the UI for it.
-      cleanupOrphanedFiles().catch(err => console.error("Background cleanup failed:", err));
       await fetchImages(false);
       setIsLoading(false);
       // Set initial load to false after a short delay to allow the first render to complete
@@ -386,6 +384,8 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
 
     
 

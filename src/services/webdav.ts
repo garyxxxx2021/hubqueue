@@ -11,6 +11,9 @@ const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
 const UPLOADS_DIR = '/uploads';
 
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 
 export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
 
@@ -153,7 +156,7 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
     }
 }
 
-export async function cleanupOrphanedFiles(): Promise<void> {
+async function cleanupOrphanedFiles(): Promise<void> {
     const client = getClient();
     try {
         if (!(await client.exists(UPLOADS_DIR))) {
@@ -176,13 +179,12 @@ export async function cleanupOrphanedFiles(): Promise<void> {
 
         for (const file of filesInUploads) {
             if (!knownImagePaths.has(file.filename)) {
-                console.log(`Deleting orphaned file: ${file.filename}`);
+                console.log(`[Lazy Deletion] Deleting orphaned file: ${file.filename}`);
                 await deleteWebdavFile(file.filename);
             }
         }
     } catch (error: any) {
-        console.error("Error during orphaned file cleanup:", error.message);
-        // We don't re-throw, as this is a background task and shouldn't crash the main flow.
+        console.error("[Lazy Deletion] Error during orphaned file cleanup:", error.message);
     }
 }
 
@@ -223,6 +225,14 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
 export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
   const client = getClient();
   try {
+    const now = Date.now();
+    if (now - lastCleanupTime > CLEANUP_INTERVAL) {
+        console.log("[Lazy Deletion] Triggering cleanup task from server...");
+        lastCleanupTime = now;
+        // Run cleanup but don't wait for it to finish to not slow down the request
+        cleanupOrphanedFiles().catch(err => console.error("[Lazy Deletion] Background cleanup failed:", err));
+    }
+
     if (await client.exists(MAINTENANCE_JSON_PATH)) {
       const content = await client.getFileContents(MAINTENANCE_JSON_PATH, { format: 'text' });
       return JSON.parse(content as string);
@@ -242,7 +252,5 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     return { success: false, error: error.message };
   }
 }
-
-    
 
     
