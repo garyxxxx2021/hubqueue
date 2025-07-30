@@ -11,9 +11,15 @@ const USERS_JSON_PATH = '/users.json';
 const MAINTENANCE_JSON_PATH = '/maintenance.json';
 const UPLOADS_DIR = '/uploads';
 
-let lastCleanupTime = 0;
-const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
+function getClient(): WebDAVClient {
+  if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
+    throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
+  }
+  return createClient(webdavConfig.url, {
+    username: webdavConfig.username,
+    password: webdavConfig.password,
+  });
+}
 
 export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
 
@@ -32,16 +38,6 @@ interface LegacyStoredUser {
   isBanned?: boolean;
 }
 
-
-function getClient(): WebDAVClient {
-  if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
-    throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
-  }
-  return createClient(webdavConfig.url, {
-    username: webdavConfig.username,
-    password: webdavConfig.password,
-  });
-}
 
 function migrateUser(user: LegacyStoredUser | StoredUser): StoredUser {
     if ('role' in user) {
@@ -156,35 +152,6 @@ export async function deleteWebdavFile(path: string): Promise<{success: boolean,
     }
 }
 
-async function cleanupOrphanedFiles(): Promise<void> {
-    const client = getClient();
-    try {
-        if (!(await client.exists(UPLOADS_DIR))) {
-            console.log("Uploads directory does not exist, skipping cleanup.");
-            return;
-        }
-
-        const [directoryContents, images] = await Promise.all([
-            client.getDirectoryContents(UPLOADS_DIR),
-            getImageList(),
-        ]);
-        
-        const knownImagePaths = new Set(images.map(img => img.webdavPath));
-
-        const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
-
-        for (const file of filesInUploads) {
-            if (!knownImagePaths.has(file.filename)) {
-                console.log(`[Lazy Deletion] Deleting orphaned file based on images.json: ${file.filename}`);
-                await deleteWebdavFile(file.filename);
-            }
-        }
-    } catch (error: any) {
-        console.error("[Lazy Deletion] Error during orphaned file cleanup:", error.message);
-    }
-}
-
-
 export async function getUsers(): Promise<StoredUser[]> {
   const client = getClient();
   try {
@@ -221,14 +188,6 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
 export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
   const client = getClient();
   try {
-    const now = Date.now();
-    if (now - lastCleanupTime > CLEANUP_INTERVAL) {
-        console.log("[Lazy Deletion] Triggering cleanup task from server...");
-        lastCleanupTime = now;
-        // Run cleanup but don't wait for it to finish to not slow down the request
-        cleanupOrphanedFiles().catch(err => console.error("[Lazy Deletion] Background cleanup failed:", err));
-    }
-
     if (await client.exists(MAINTENANCE_JSON_PATH)) {
       const content = await client.getFileContents(MAINTENANCE_JSON_PATH, { format: 'text' });
       return JSON.parse(content as string);

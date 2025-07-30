@@ -217,38 +217,6 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
                         </Button>
                     )}
                 </div>
-                
-                {canUserDelete && status !== 'in-progress' && (
-                  <AlertDialog>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                    <span className="sr-only">删除</span>
-                                </Button>
-                              </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>从队列中移除</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>您确定吗？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          此操作无法撤销。这将从服务器上永久删除图片 <span className="font-semibold">{name}</span>。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(id)}>继续</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
             </div>
         </CardFooter>
       </div>

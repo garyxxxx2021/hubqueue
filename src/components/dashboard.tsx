@@ -6,7 +6,7 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, deleteWebdavFile, getHistoryList, saveHistoryList } from '@/services/webdav';
+import { getImageList, saveImageList, getHistoryList, saveHistoryList } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -91,6 +91,7 @@ export default function Dashboard() {
       }, 100);
     };
     initialFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   useEffect(() => {
@@ -292,23 +293,13 @@ export default function Dashboard() {
   };
 
   const handleDeleteImage = async (id: string) => {
+     // This function is kept for potential future use but is not called from the UI.
     const imageToDelete = images.find(img => img.id === id);
     if (!imageToDelete) return;
-
     setIsSyncing(true);
-
     try {
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToDelete.webdavPath);
-        if (!deleteSuccess) {
-            // Allow continuing if file not found, otherwise throw
-            if (deleteError && !deleteError.includes('404')) {
-                throw new Error(deleteError || `无法从存储中删除文件。`);
-            }
-        }
-
         const currentImages = await getImageList();
         const updatedImages = currentImages.filter(img => img.id !== id);
-
         const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
         if(saveSuccess) {
             setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
@@ -384,11 +375,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
-
-    
-
-    
-
-    
