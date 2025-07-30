@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { ShieldCheck, User as UserIcon, Trash2, Ban } from 'lucide-react';
+import { ShieldCheck, User as UserIcon, Trash2, Ban, UserCheck } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   AlertDialog,
@@ -33,7 +33,7 @@ const roleLabels: Record<UserRole, string> = {
 
 const roleIcons: Record<UserRole, React.ReactNode> = {
     admin: <ShieldCheck className="h-4 w-4 text-primary" />,
-    trusted: <UserIcon className="h-4 w-4 text-green-500" />,
+    trusted: <UserCheck className="h-4 w-4 text-green-500" />,
     user: <UserIcon className="h-4 w-4 text-muted-foreground" />,
     banned: <Ban className="h-4 w-4 text-destructive" />,
 };
