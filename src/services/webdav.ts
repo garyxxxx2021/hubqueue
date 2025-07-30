@@ -180,16 +180,12 @@ export async function cleanupOrphanedFiles(): Promise<void> {
             return;
         }
 
-        const [directoryContents, images, history] = await Promise.all([
+        const [directoryContents, images] = await Promise.all([
             client.getDirectoryContents(UPLOADS_DIR),
             getImageList(),
-            getHistoryList()
         ]);
 
-        const knownPaths = new Set([
-            ...images.map(img => img.webdavPath),
-            ...history.map(img => img.webdavPath)
-        ]);
+        const knownPaths = new Set(images.map(img => img.webdavPath));
 
         const filesInUploads = (directoryContents as FileStat[]).filter(item => item.type === 'file');
 
