@@ -26,9 +26,13 @@ export default function Header() {
 
   const getRoleLabel = () => {
     if (!user) return '';
-    if (user.isAdmin) return '管理员';
-    if (user.isTrusted) return '可信用户';
-    return '用户';
+    switch (user.role) {
+      case 'admin': return '管理员';
+      case 'trusted': return '可信用户';
+      case 'user': return '用户';
+      case 'banned': return '已封禁';
+      default: return '用户';
+    }
   };
 
   return (

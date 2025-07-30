@@ -3,10 +3,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, StoredUser, getMaintenanceStatus, saveUsers } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, saveUsers, UserRole } from '@/services/webdav'; 
 
 interface User {
   username: string;
+  role: UserRole;
   isAdmin: boolean;
   isTrusted: boolean;
 }
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
-        if (foundUser.isBanned) {
+        if (foundUser.role === 'banned') {
            Cookies.remove(USER_COOKIE_KEY);
            setUser(null);
            return false;
@@ -65,8 +66,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         const userData = { 
           username: foundUser.username, 
-          isAdmin: foundUser.isAdmin, 
-          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+          role: foundUser.role,
+          isAdmin: foundUser.role === 'admin', 
+          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted', 
         };
         setUser(userData);
         setIsMaintenanceMode(maintenanceStatus.isMaintenance);
@@ -134,14 +136,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const foundUser = users.find(u => u.username === username && u.passwordHash === passwordHash);
 
       if (foundUser) {
-        if (foundUser.isBanned) {
+        if (foundUser.role === 'banned') {
             return { success: false, message: '您的账户已被封禁。' };
         }
 
         const userData = { 
           username: foundUser.username, 
-          isAdmin: foundUser.isAdmin, 
-          isTrusted: foundUser.isAdmin || foundUser.isTrusted 
+          role: foundUser.role,
+          isAdmin: foundUser.role === 'admin',
+          isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted'
         };
         const sessionData: SessionData = { username: foundUser.username, hash: foundUser.passwordHash };
         Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 }); 
@@ -173,16 +176,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return { success: false, message: "该用户名已存在。" };
         }
 
-        const isAdmin = users.length === 0;
-        const isTrusted = isAdmin;
+        const role: UserRole = users.length === 0 ? 'admin' : 'user';
         const passwordHash = await hashPassword(password_input);
 
         const newUser: StoredUser = {
             username,
             passwordHash,
-            isAdmin,
-            isTrusted,
-            isBanned: false,
+            role,
         };
         
         const currentUsers = await getUsers();
@@ -195,7 +195,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const { success, error } = await saveUsers(updatedUsers);
 
         if (success) {
-            const userData = { username: newUser.username, isAdmin: newUser.isAdmin, isTrusted: newUser.isTrusted };
+            const userData = { 
+                username: newUser.username,
+                role: newUser.role,
+                isAdmin: newUser.role === 'admin',
+                isTrusted: newUser.role === 'admin' || newUser.role === 'trusted'
+            };
             const sessionData: SessionData = { username: newUser.username, hash: newUser.passwordHash };
             Cookies.set(USER_COOKIE_KEY, JSON.stringify(sessionData), { expires: 7 });
             setUser(userData);

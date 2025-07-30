@@ -120,7 +120,7 @@ export function ImageCard({ image, onClaim, onUnclaim, onUpload, onComplete, onD
             <div className="w-full flex items-center justify-between gap-2">
                 <div className='flex-1'>
                     {status === 'uploaded' && (
-                        (user?.isAdmin || user?.isTrusted) ? (
+                        (user?.isTrusted) ? (
                           <Button onClick={() => onClaim(id)} size="sm" className="w-full">
                               <GitBranch className="mr-2 h-4 w-4"/>
                               认领任务
