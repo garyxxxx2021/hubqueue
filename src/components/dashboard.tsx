@@ -317,9 +317,11 @@ export default function Dashboard() {
   const activeImages = images.filter(img => img.status !== 'completed');
   
   const queueStats = useMemo(() => {
+    const totalUploaded = images.length;
     const totalCompleted = images.filter(img => img.status === 'completed').length;
+    const userUploaded = user ? images.filter(img => img.uploadedBy === user.username).length : 0;
     const userCompleted = user ? images.filter(img => img.status === 'completed' && img.completedBy === user.username).length : 0;
-    return { totalCompleted, userCompleted };
+    return { totalUploaded, totalCompleted, userUploaded, userCompleted };
   }, [images, user]);
 
   return (

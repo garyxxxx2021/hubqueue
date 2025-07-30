@@ -1,11 +1,15 @@
+
 import type { ImageFile } from '@/types';
 import { ImageCard } from './image-card';
-import { FileQuestion, RefreshCw } from 'lucide-react';
+import { FileQuestion, RefreshCw, Upload, CheckCircle, User, Users } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from './ui/card';
 
 interface ImageQueueProps {
   images: ImageFile[];
   stats: {
+    totalUploaded: number;
     totalCompleted: number;
+    userUploaded: number;
     userCompleted: number;
   };
   onClaim: (id: string) => void;
@@ -20,12 +24,7 @@ export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComp
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
-            <span className="text-sm text-muted-foreground font-medium">
-                (您: {stats.userCompleted} / 总共: {stats.totalCompleted})
-            </span>
-        </div>
+        <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isSyncing && (
                 <>
@@ -35,6 +34,58 @@ export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComp
             )}
         </div>
       </div>
+
+       <div className="grid gap-4 md:grid-cols-2 mb-8">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">您的贡献</CardTitle>
+                    <User className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <Upload className="h-5 w-5 text-primary" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.userUploaded}</p>
+                                <p className="text-xs text-muted-foreground">上传</p>
+                            </div>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.userCompleted}</p>
+                                <p className="text-xs text-muted-foreground">完成</p>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">队列总览</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-6">
+                       <div className="flex items-center gap-2">
+                            <Upload className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.totalUploaded}</p>
+                                <p className="text-xs text-muted-foreground">总上传</p>
+                            </div>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.totalCompleted}</p>
+                                <p className="text-xs text-muted-foreground">总完成</p>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
       {images.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {images.map(image => (
