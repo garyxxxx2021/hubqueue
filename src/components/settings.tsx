@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { getSoundPreference, setSoundPreference, getNotificationPreference, setNotificationPreference } from '@/lib/preferences';
-import { BellRing, BellOff, Volume2, VolumeX } from 'lucide-react';
+import { BellRing, BellOff, Volume2, VolumeX, Palette } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import { ThemeToggle } from './theme-toggle';
 
 export default function Settings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -59,6 +59,16 @@ export default function Settings() {
                     </div>
                     <Skeleton className="h-6 w-11" />
                 </div>
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <div>
+                           <Skeleton className="h-5 w-24 mb-1" />
+                           <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-10 w-10" />
+                </div>
             </CardContent>
         </Card>
        </div>
@@ -73,6 +83,16 @@ export default function Settings() {
                 <CardDescription>管理您的账户和应用偏好。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Palette className="h-6 w-6 text-muted-foreground" />
+                        <div>
+                            <Label htmlFor="theme-toggle" className="font-semibold">外观主题</Label>
+                            <p className="text-sm text-muted-foreground">选择一个适合您的应用主题（浅色、深色或跟随系统）。</p>
+                        </div>
+                    </div>
+                    <ThemeToggle />
+                </div>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
                          {notificationsEnabled ? <BellRing className="h-6 w-6 text-primary" /> : <BellOff className="h-6 w-6 text-muted-foreground" />}
