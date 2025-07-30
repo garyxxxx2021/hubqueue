@@ -3,18 +3,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { getUsers, saveUsers, StoredUser, getMaintenanceStatus, saveMaintenanceStatus } from '@/services/webdav';
+import { getUsers, saveUsers, StoredUser } from '@/services/webdav';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { ShieldCheck, User as UserIcon, Wrench } from 'lucide-react';
-import { Label } from './ui/label';
+import { ShieldCheck, User as UserIcon } from 'lucide-react';
 
 export default function UserManagement() {
-  const { user, isMaintenanceMode, setMaintenanceMode, isLoading: isAuthLoading, updateUserStatus } = useAuth();
+  const { user, isLoading: isAuthLoading, updateUserStatus } = useAuth();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingStates, setUpdatingStates] = useState<Record<string, boolean>>({});
@@ -27,21 +26,17 @@ export default function UserManagement() {
     }
   }, [user, isAuthLoading, router]);
 
-  const fetchAdminData = async () => {
+  const fetchUsers = async () => {
       if (user?.isAdmin) {
         setIsLoading(true);
         try {
-           const [userList, maintenanceStatus] = await Promise.all([
-            getUsers(),
-            getMaintenanceStatus(),
-          ]);
-          setUsers(userList);
-          setMaintenanceMode(maintenanceStatus.isMaintenance);
+           const userList = await getUsers();
+           setUsers(userList);
         } catch (error) {
           toast({
             variant: "destructive",
             title: "加载失败",
-            description: "无法从服务器获取管理员数据。",
+            description: "无法从服务器获取用户列表。",
           });
         } finally {
           setIsLoading(false);
@@ -50,7 +45,7 @@ export default function UserManagement() {
     };
     
   useEffect(() => {
-    fetchAdminData();
+    fetchUsers();
   }, [user]);
   
   const handleTrustToggle = async (username: string, isTrusted: boolean) => {
@@ -80,43 +75,14 @@ export default function UserManagement() {
            await updateUserStatus(username);
         }
         
-        await fetchAdminData();
+        await fetchUsers();
     }
     setUpdatingStates(prev => ({ ...prev, [username]: false }));
   };
 
-  const handleMaintenanceToggle = async (isMaintenance: boolean) => {
-    setUpdatingStates(prev => ({ ...prev, maintenance: true }));
-    setMaintenanceMode(isMaintenance);
-    const { success, error } = await saveMaintenanceStatus({ isMaintenance });
-     if (!success) {
-        toast({
-            variant: 'destructive',
-            title: '操作失败',
-            description: error || '无法更新维护状态。',
-        });
-        setMaintenanceMode(!isMaintenance);
-    } else {
-         toast({
-            title: '操作成功',
-            description: `网站维护模式已${isMaintenance ? '开启' : '关闭'}。`,
-        });
-    }
-    setUpdatingStates(prev => ({ ...prev, maintenance: false }));
-  }
-
   if (isAuthLoading || isLoading) {
     return (
         <div className="container mx-auto py-8 px-4 md:px-6">
-            <Card className='mb-8'>
-                <CardHeader>
-                    <CardTitle>系统设置</CardTitle>
-                    <CardDescription>正在加载系统设置...</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <Skeleton className="h-8 w-48" />
-                </CardContent>
-            </Card>
             <Card>
                 <CardHeader>
                     <CardTitle>用户管理</CardTitle>
@@ -146,30 +112,6 @@ export default function UserManagement() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
-        <Card className="mb-8">
-            <CardHeader>
-                <CardTitle>系统设置</CardTitle>
-                <CardDescription>管理整个应用程序的全局设置。</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                         <Wrench className="h-6 w-6 text-muted-foreground" />
-                        <div>
-                            <Label htmlFor="maintenance-mode" className="font-semibold">维护模式</Label>
-                            <p className="text-sm text-muted-foreground">开启后，只有管理员可以访问网站。</p>
-                        </div>
-                    </div>
-                    <Switch
-                        id="maintenance-mode"
-                        checked={isMaintenanceMode}
-                        onCheckedChange={handleMaintenanceToggle}
-                        disabled={updatingStates['maintenance']}
-                        aria-label="Toggle maintenance mode"
-                    />
-                </div>
-            </CardContent>
-        </Card>
         <Card>
             <CardHeader>
             <CardTitle>用户管理</CardTitle>
