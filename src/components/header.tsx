@@ -71,10 +71,6 @@ export default function Header() {
                       <SettingsIcon className="mr-2 h-4 w-4" />
                       <span>个人设置</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/stats')}>
-                        <BarChart className="mr-2 h-4 w-4" />
-                        <span>统计数据</span>
-                    </DropdownMenuItem>
                   {user.isAdmin && (
                     <>
                       <DropdownMenuItem onClick={() => router.push('/users')}>
@@ -83,7 +79,7 @@ export default function Header() {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => router.push('/system-settings')}>
                         <Wrench className="mr-2 h-4 w-4" />
-                        <span>系统设置</span>
+                        <span>系统面板</span>
                       </DropdownMenuItem>
                     </>
                   )}

@@ -4,6 +4,10 @@ import { FileQuestion, RefreshCw } from 'lucide-react';
 
 interface ImageQueueProps {
   images: ImageFile[];
+  stats: {
+    totalCompleted: number;
+    userCompleted: number;
+  };
   onClaim: (id: string) => void;
   onUnclaim: (id: string) => void;
   onUpload: (id: string) => void;
@@ -12,11 +16,16 @@ interface ImageQueueProps {
   isSyncing: boolean;
 }
 
-export function ImageQueue({ images, onClaim, onUnclaim, onUpload, onComplete, onDelete, isSyncing }: ImageQueueProps) {
+export function ImageQueue({ images, stats, onClaim, onUnclaim, onUpload, onComplete, onDelete, isSyncing }: ImageQueueProps) {
   return (
     <div className="mt-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
+        <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold tracking-tight">图片队列</h2>
+            <span className="text-sm text-muted-foreground font-medium">
+                (您: {stats.userCompleted} / 总共: {stats.totalCompleted})
+            </span>
+        </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isSyncing && (
                 <>

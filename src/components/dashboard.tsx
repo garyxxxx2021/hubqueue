@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
@@ -35,11 +35,11 @@ export default function Dashboard() {
       const imageList = await getImageList();
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
       
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !isInitialLoad.current) {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
-        if (newImages.length > 0 && !isInitialLoad.current) {
+        if (newImages.length > 0) {
           const newImageNames = newImages.map(img => img.name).join(', ');
           
           if (getNotificationPreference()) {
@@ -81,8 +81,11 @@ export default function Dashboard() {
     const initialFetch = async () => {
       setIsLoading(true);
       await fetchImages(false);
-      isInitialLoad.current = false;
       setIsLoading(false);
+      // Set initial load to false after a short delay to allow the first render to complete
+      setTimeout(() => {
+        isInitialLoad.current = false;
+      }, 100);
     };
     initialFetch();
   }, [fetchImages]);
@@ -312,6 +315,12 @@ export default function Dashboard() {
   }
 
   const activeImages = images.filter(img => img.status !== 'completed');
+  
+  const queueStats = useMemo(() => {
+    const totalCompleted = images.filter(img => img.status === 'completed').length;
+    const userCompleted = user ? images.filter(img => img.status === 'completed' && img.completedBy === user.username).length : 0;
+    return { totalCompleted, userCompleted };
+  }, [images, user]);
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -340,6 +349,7 @@ export default function Dashboard() {
       ) : (
         <ImageQueue
           images={activeImages}
+          stats={queueStats}
           onClaim={handleClaimImage}
           onUnclaim={handleUnclaimImage}
           onUpload={handleUploadFromQueue}
