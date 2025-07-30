@@ -201,30 +201,30 @@ export default function UserManagement() {
                             <TableRow key={u.username} className={u.role === 'banned' ? 'bg-destructive/10' : ''}>
                             <TableCell className="font-medium">{u.username}</TableCell>
                             <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <Select 
-                                        value={u.role}
-                                        onValueChange={(newRole) => handleRoleChange(u.username, newRole as UserRole)}
-                                        disabled={isInitialAdmin || updatingStates[u.username]}
-                                    >
-                                        <SelectTrigger className="w-[140px] h-9">
-                                           <div className="flex items-center gap-2">
-                                              {roleIcons[u.role]}
-                                              <SelectValue />
-                                           </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {(Object.keys(roleLabels) as UserRole[]).map(role => (
-                                                <SelectItem key={role} value={role}>
-                                                    <div className="flex items-center gap-2">
-                                                       {roleIcons[role]}
-                                                       <span>{roleLabels[role]}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                <Select 
+                                    value={u.role}
+                                    onValueChange={(newRole) => handleRoleChange(u.username, newRole as UserRole)}
+                                    disabled={isInitialAdmin || updatingStates[u.username]}
+                                >
+                                    <SelectTrigger className="w-[140px] h-9">
+                                        <SelectValue placeholder="选择角色">
+                                            <div className="flex items-center gap-2">
+                                                {roleIcons[u.role]}
+                                                <span>{roleLabels[u.role]}</span>
+                                            </div>
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(Object.keys(roleLabels) as UserRole[]).map(role => (
+                                            <SelectItem key={role} value={role}>
+                                                <div className="flex items-center gap-2">
+                                                   {roleIcons[role]}
+                                                   <span>{roleLabels[role]}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </TableCell>
                             <TableCell className="text-right">
                               <AlertDialog>
