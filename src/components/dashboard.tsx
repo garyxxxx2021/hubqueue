@@ -11,6 +11,7 @@ import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
+import Ably from 'ably';
 
 
 export default function Dashboard() {
@@ -25,7 +26,7 @@ export default function Dashboard() {
   imagesRef.current = images;
 
   const isInitialLoad = useRef(true);
-  const wsRef = useRef<WebSocket | null>(null);
+  const ablyRef = useRef<Ably.Realtime | null>(null);
 
   const fetchImages = useCallback(async (showSyncingIndicator = false) => {
     if (showSyncingIndicator) {
@@ -79,35 +80,6 @@ export default function Dashboard() {
     }
   }, [toast]);
 
-  const connectWebSocket = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.host;
-    const wsUrl = `${protocol}://${host}`;
-    
-    wsRef.current = new WebSocket(wsUrl);
-
-    wsRef.current.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-
-    wsRef.current.onmessage = (event) => {
-        if (event.data === 'update') {
-            console.log('Update notification received via WebSocket');
-            fetchImages(true);
-        }
-    };
-
-    wsRef.current.onclose = () => {
-        console.log('WebSocket connection closed. Reconnecting in 5 seconds...');
-        setTimeout(connectWebSocket, 5000);
-    };
-
-    wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        wsRef.current?.close();
-    };
-  }, [fetchImages]);
-
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
@@ -119,12 +91,23 @@ export default function Dashboard() {
     };
     
     initialFetch();
-    connectWebSocket();
+
+    // Setup Ably client
+    const ably = new Ably.Realtime({ authUrl: '/api/ably-auth' });
+    ablyRef.current = ably;
+
+    ably.connection.on('connected', () => {
+      console.log('Connected to Ably!');
+    });
+
+    const channel = ably.channels.get('hubqueue:updates');
+    channel.subscribe('update', (message) => {
+      console.log('Update notification received via Ably');
+      fetchImages(true);
+    });
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      ably.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +135,7 @@ export default function Dashboard() {
         const { success, error } = await saveImageList(updatedImages);
         
         if (success) {
-          // No need to setImages locally, WebSocket will trigger update
+          // No need to setImages locally, Ably will trigger update
         } else {
           throw new Error(error || "无法保存更新后的图片列表。");
         }

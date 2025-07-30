@@ -1,32 +1,27 @@
 
 'use server';
 
-import { createClient, WebDAVClient, FileStat } from 'webdav';
+import { createClient, WebDAVClient } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
+import Ably from 'ably';
 
-const IMAGES_JSON_PATH = '/images.json';
-const HISTORY_JSON_PATH = '/history.json';
-const USERS_JSON_PATH = '/users.json';
-const MAINTENANCE_JSON_PATH = '/maintenance.json';
-const UPLOADS_DIR = '/uploads';
+const ABLY_API_KEY = process.env.ABLY_API_KEY;
+const ABLY_CHANNEL_NAME = 'hubqueue:updates';
 
-const NOTIFY_URL = 'http://localhost:3001/notify';
-
-// Internal function to notify WebSocket server
+// Internal function to notify Ably
 async function notifyClients() {
+  if (!ABLY_API_KEY) {
+    console.warn("Ably API Key not found, skipping notification.");
+    return;
+  }
   try {
-    // This is a fire-and-forget request.
-    fetch(NOTIFY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'update' }),
-    }).catch(e => {
-       // It's okay if this fails, e.g., in a serverless build environment.
-       console.log('Could not notify WebSocket server. This is expected during build.');
-    });
+    const ably = new Ably.Rest(ABLY_API_KEY);
+    const channel = ably.channels.get(ABLY_CHANNEL_NAME);
+    await channel.publish('update', { status: 'ok' });
+    console.log("Published update to Ably channel.");
   } catch (error) {
-    console.error('Failed to notify WebSocket server:', error);
+    console.error('Failed to notify Ably:', error);
   }
 }
 
@@ -80,6 +75,7 @@ function migrateUser(user: LegacyStoredUser | StoredUser): StoredUser {
     };
 }
 
+const UPLOADS_DIR = '/uploads';
 
 export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
   const client = getClient();
@@ -105,6 +101,7 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
   }
 }
 
+const IMAGES_JSON_PATH = '/images.json';
 export async function getImageList(): Promise<ImageFile[]> {
   const client = getClient();
   try {
@@ -132,6 +129,7 @@ export async function saveImageList(images: ImageFile[]): Promise<{success: bool
   }
 }
 
+const HISTORY_JSON_PATH = '/history.json';
 export async function getHistoryList(): Promise<ImageFile[]> {
   const client = getClient();
   try {
@@ -159,20 +157,7 @@ export async function saveHistoryList(images: ImageFile[]): Promise<{success: bo
   }
 }
 
-export async function deleteWebdavFile(path: string): Promise<{success: boolean, error?: string}> {
-    const client = getClient();
-    try {
-        if (await client.exists(path)) {
-            await client.deleteFile(path);
-        }
-        return { success: true };
-    } catch (error: any) {
-        console.error(`Failed to delete file from WebDAV: ${path}`, error);
-        // Return the error message, which might include status code like 404
-        return { success: false, error: error.message || 'Unknown error' };
-    }
-}
-
+const USERS_JSON_PATH = '/users.json';
 export async function getUsers(): Promise<StoredUser[]> {
   const client = getClient();
   try {
@@ -207,6 +192,7 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
   }
 }
 
+const MAINTENANCE_JSON_PATH = '/maintenance.json';
 export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
   const client = getClient();
   try {
