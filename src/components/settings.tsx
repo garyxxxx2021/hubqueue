@@ -10,6 +10,7 @@ import { BellRing, BellOff, Volume2, VolumeX, Wrench } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { saveMaintenanceStatus } from '@/services/webdav';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from './ui/skeleton';
 
 export default function Settings() {
   const { user, isMaintenanceMode, setMaintenanceMode } = useAuth();
@@ -58,8 +59,58 @@ export default function Settings() {
   };
 
   if (!isClient) {
-    // Render nothing or a skeleton on the server to avoid hydration mismatch
-    return null;
+    return (
+       <div className="container mx-auto py-8 px-4 md:px-6">
+        {user?.isAdmin && (
+             <Card className="mb-8">
+                <CardHeader>
+                    <CardTitle>系统设置</CardTitle>
+                    <CardDescription>管理整个应用程序的全局设置。</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                            <Wrench className="h-6 w-6 text-muted-foreground" />
+                            <div>
+                               <Skeleton className="h-5 w-24 mb-1" />
+                               <Skeleton className="h-4 w-64" />
+                            </div>
+                        </div>
+                        <Skeleton className="h-6 w-11" />
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+        <Card>
+            <CardHeader>
+                <CardTitle>通知设置</CardTitle>
+                <CardDescription>管理您的账户和应用偏好。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <div>
+                           <Skeleton className="h-5 w-32 mb-1" />
+                           <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-6 w-11" />
+                </div>
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <div>
+                           <Skeleton className="h-5 w-24 mb-1" />
+                           <Skeleton className="h-4 w-72" />
+                        </div>
+                    </div>
+                    <Skeleton className="h-6 w-11" />
+                </div>
+            </CardContent>
+        </Card>
+       </div>
+    );
   }
 
   return (
