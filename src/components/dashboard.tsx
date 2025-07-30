@@ -25,92 +25,69 @@ export default function Dashboard() {
   const imagesRef = useRef(images);
   imagesRef.current = images;
 
-  const isInitialLoad = useRef(true);
   const ablyRef = useRef<Ably.Realtime | null>(null);
 
-  const fetchImages = useCallback(async (showSyncingIndicator = false) => {
-    if (showSyncingIndicator) {
-      setIsSyncing(true);
-    }
+  const fetchInitialData = useCallback(async () => {
+    setIsLoading(true);
     try {
       const [imageList, historyList] = await Promise.all([getImageList(), getHistoryList()]);
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
-      
-      if (document.visibilityState === 'visible' && !isInitialLoad.current) {
-        const oldImageIds = new Set(imagesRef.current.map(img => img.id));
-        const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
-        
-        if (newImages.length > 0) {
-          const newImageNames = newImages.map(img => img.name).join(', ');
-          
-          if (getNotificationPreference()) {
-            toast({
-              title: '有新图片加入队列',
-              description: `新图片: ${newImageNames}`,
-            });
-          }
-          
-          if (getSoundPreference()) {
-            const audio = new Audio('/notification.mp3');
-            audio.play().catch(error => {
-              // Gracefully handle cases where the sound file might not exist or fails to play.
-            });
-          }
-        }
-      }
-      
-      if (JSON.stringify(migratedImageList) !== JSON.stringify(imagesRef.current)) {
-        setImages(migratedImageList);
-      }
+      setImages(migratedImageList);
       setHistory(historyList);
-
     } catch (error: any) {
-      if (showSyncingIndicator) {
-          toast({
-            variant: "destructive",
-            title: "无法加载图片列表",
-            description: error.message || "无法连接到 WebDAV。",
-          });
-      }
-      console.error("Data fetch failed:", error);
+       toast({
+        variant: "destructive",
+        title: "无法加载图片列表",
+        description: error.message || "无法连接到 WebDAV。",
+      });
     } finally {
-      if (showSyncingIndicator) {
-        setIsSyncing(false);
-      }
+        setIsLoading(false);
     }
   }, [toast]);
-
+  
   useEffect(() => {
-    const initialFetch = async () => {
-      setIsLoading(true);
-      await fetchImages(false);
-      setIsLoading(false);
-      setTimeout(() => {
-        isInitialLoad.current = false;
-      }, 100);
-    };
-    
-    initialFetch();
+    fetchInitialData();
 
     if (!ablyRef.current) {
       ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
-
       ablyRef.current.connection.on('connected', () => {
         console.log('Connected to Ably!');
       });
 
       const channel = ablyRef.current.channels.get('hubqueue:updates');
-      channel.subscribe('update', (message) => {
-        console.log('Update notification received via Ably');
-        fetchImages(true);
+      
+      channel.subscribe((message) => {
+        const { name, data } = message;
+        console.log(`Received Ably message: ${name}`, data);
+
+        if (name === 'image_added') {
+            const newImage = data as ImageFile;
+            setImages(prev => [newImage, ...prev]);
+
+            if (getNotificationPreference()) {
+                toast({
+                    title: '有新图片加入队列',
+                    description: `新图片: ${newImage.name}`,
+                });
+            }
+            if (getSoundPreference()) {
+                new Audio('/notification.mp3').play().catch(() => {});
+            }
+        } else if (name === 'image_updated') {
+            const updatedImage = data as ImageFile;
+            setImages(prev => prev.map(img => img.id === updatedImage.id ? updatedImage : img));
+        } else if (name === 'image_completed') {
+            const { imageId, completedImage } = data;
+            setImages(prev => prev.filter(img => img.id !== imageId));
+            setHistory(prev => [completedImage, ...prev]);
+        } else if (name === 'image_deleted') {
+            const { imageId } = data;
+            setImages(prev => prev.filter(img => img.id !== imageId));
+        }
       });
     }
-
-    // By not including a cleanup function, we prevent the connection
-    // from being closed on component unmount, which is better for SPA navigation
-    // and avoids issues with React Strict Mode's double-invocation.
-    // The connection will be closed by the browser when the user leaves the page.
-
+    // No cleanup function to keep the connection alive across SPA navigations
+    // The browser will handle closing the connection on page exit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -126,7 +103,7 @@ export default function Dashboard() {
 
     setIsSyncing(true);
     try {
-      const currentImages = await getImageList();
+      const currentImages = await getImageList(); // Still fetch to avoid race conditions
       const imageToClaim = currentImages.find(img => img.id === id);
 
       if (imageToClaim && imageToClaim.status === 'uploaded') {
@@ -134,11 +111,9 @@ export default function Dashboard() {
           img.id === id ? { ...img, status: 'in-progress', claimedBy: user.username } : img
         );
         
-        const { success, error } = await saveImageList(updatedImages);
+        const { success, error } = await saveImageList(updatedImages, { type: 'update', payload: updatedImages.find(i => i.id === id)! });
         
-        if (success) {
-          // No need to setImages locally, Ably will trigger update
-        } else {
+        if (!success) {
           throw new Error(error || "无法保存更新后的图片列表。");
         }
       } else {
@@ -147,7 +122,7 @@ export default function Dashboard() {
             title: "操作失败",
             description: "该任务可能已被其他用户认领。"
         });
-        await fetchImages(false);
+        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
       }
     } catch (error: any) {
        toast({
@@ -155,7 +130,9 @@ export default function Dashboard() {
         title: "同步错误",
         description: error.message || "无法认领任务。",
       });
-      await fetchImages(false);
+      // Rollback UI on error
+      const currentImages = await getImageList();
+      setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
     } finally {
         setIsSyncing(false);
     }
@@ -173,7 +150,7 @@ export default function Dashboard() {
           img.id === id ? { ...img, status: 'uploaded', claimedBy: undefined } : img
         );
 
-        const { success, error } = await saveImageList(updatedImages);
+        const { success, error } = await saveImageList(updatedImages, { type: 'update', payload: updatedImages.find(i => i.id === id)! });
 
         if (!success) {
           throw new Error(error || "无法保存更新后的图片列表。");
@@ -192,7 +169,8 @@ export default function Dashboard() {
         title: "同步错误",
         description: error.message || "无法放回任务。",
       });
-      await fetchImages(false);
+      const currentImages = await getImageList();
+      setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
     } finally {
       setIsSyncing(false);
     }
@@ -222,7 +200,7 @@ export default function Dashboard() {
         const currentImages = await getImageList();
         const updatedImages = [newImage, ...currentImages];
 
-        const { success, error } = await saveImageList(updatedImages);
+        const { success, error } = await saveImageList(updatedImages, { type: 'add', payload: newImage });
         if (!success) {
             throw new Error(error || '无法将图片列表保存到 WebDAV。');
         }
@@ -232,7 +210,6 @@ export default function Dashboard() {
             title: "同步失败",
             description: error.message,
         });
-        await fetchImages(false);
     } finally {
         setIsSyncing(false);
     }
@@ -264,7 +241,7 @@ export default function Dashboard() {
         const updatedHistory = [completedImageRecord, ...currentHistory];
 
         const [saveImagesResult, saveHistoryResult] = await Promise.all([
-            saveImageList(updatedImages),
+            saveImageList(updatedImages, { type: 'complete', payload: { imageId: id, completedImage: completedImageRecord } }),
             saveHistoryList(updatedHistory)
         ]);
 
@@ -277,7 +254,8 @@ export default function Dashboard() {
             title: "操作失败",
             description: error.message,
         });
-        await fetchImages(false);
+        const currentImages = await getImageList();
+        setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
     } finally {
         setIsSyncing(false);
     }
@@ -294,7 +272,7 @@ export default function Dashboard() {
       }
 
       const updatedImages = currentImages.filter(img => img.id !== id);
-      const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
+      const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages, {type: 'delete', payload: { imageId: id }});
 
       if (!saveSuccess) {
         throw new Error(saveError || "无法更新图片列表。");
@@ -305,7 +283,8 @@ export default function Dashboard() {
         title: "删除失败",
         description: error.message,
       });
-      await fetchImages(false);
+       const currentImages = await getImageList();
+       setImages(currentImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
     } finally {
       setIsSyncing(false);
     }

@@ -9,8 +9,13 @@ import Ably from 'ably';
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
 const ABLY_CHANNEL_NAME = 'hubqueue:updates';
 
+interface NotificationPayload {
+  type: 'add' | 'update' | 'complete' | 'delete' | 'users' | 'maintenance';
+  payload: any;
+}
+
 // Internal function to notify Ably
-async function notifyClients() {
+async function notifyClients(notification: NotificationPayload) {
   if (!ABLY_API_KEY) {
     console.warn("Ably API Key not found, skipping notification.");
     return;
@@ -18,8 +23,28 @@ async function notifyClients() {
   try {
     const ably = new Ably.Rest(ABLY_API_KEY);
     const channel = ably.channels.get(ABLY_CHANNEL_NAME);
-    await channel.publish('update', { status: 'ok' });
-    console.log("Published update to Ably channel.");
+    let messageName = '';
+    let messageData = notification.payload;
+
+    switch(notification.type) {
+      case 'add':
+        messageName = 'image_added';
+        break;
+      case 'update':
+        messageName = 'image_updated';
+        break;
+      case 'complete':
+        messageName = 'image_completed';
+        break;
+      case 'delete':
+        messageName = 'image_deleted';
+        break;
+      default:
+        messageName = 'general_update';
+        messageData = { type: notification.type };
+    }
+    
+    await channel.publish(messageName, messageData);
   } catch (error) {
     console.error('Failed to notify Ably:', error);
   }
@@ -116,12 +141,14 @@ export async function getImageList(): Promise<ImageFile[]> {
   }
 }
 
-export async function saveImageList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
+export async function saveImageList(images: ImageFile[], notification?: NotificationPayload): Promise<{success: boolean, error?: string}> {
   const client = getClient();
   try {
     await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(images, null, 2));
     console.log('Image list saved successfully to WebDAV.');
-    await notifyClients();
+    if (notification) {
+        await notifyClients(notification);
+    }
     return { success: true };
   } catch (error: any) {
     console.error('Failed to save image list to WebDAV', error);
@@ -149,7 +176,8 @@ export async function saveHistoryList(images: ImageFile[]): Promise<{success: bo
   try {
     await client.putFileContents(HISTORY_JSON_PATH, JSON.stringify(images, null, 2));
     console.log('History list saved successfully to WebDAV.');
-    await notifyClients();
+    // History updates are usually secondary to image list updates, so no separate notification is sent
+    // unless specifically needed. The 'complete' action handles this.
     return { success: true };
   } catch (error: any) {
     console.error('Failed to save history list to WebDAV', error);
@@ -185,7 +213,7 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
   const client = getClient();
   try {
     await client.putFileContents(USERS_JSON_PATH, JSON.stringify(users, null, 2));
-    await notifyClients();
+    await notifyClients({ type: 'users', payload: {} });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -210,7 +238,7 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
   const client = getClient();
   try {
     await client.putFileContents(MAINTENANCE_JSON_PATH, JSON.stringify(status, null, 2));
-    await notifyClients();
+    await notifyClients({ type: 'maintenance', payload: {} });
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
