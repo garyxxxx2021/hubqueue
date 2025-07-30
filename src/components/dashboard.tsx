@@ -25,6 +25,8 @@ export default function Dashboard() {
   const imagesRef = useRef(images);
   imagesRef.current = images;
 
+  const isInitialLoad = useRef(true);
+
   const fetchImages = useCallback(async (showSyncingIndicator = false) => {
     if (showSyncingIndicator) {
       setIsSyncing(true);
@@ -37,7 +39,7 @@ export default function Dashboard() {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
-        if (newImages.length > 0) {
+        if (newImages.length > 0 && !isInitialLoad.current) {
           const newImageNames = newImages.map(img => img.name).join(', ');
           
           if (getNotificationPreference()) {
@@ -80,6 +82,7 @@ export default function Dashboard() {
     const initialFetch = async () => {
       setIsLoading(true);
       await fetchImages(false);
+      isInitialLoad.current = false;
       setIsLoading(false);
     };
     initialFetch();
