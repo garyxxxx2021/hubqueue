@@ -95,7 +95,7 @@ export default function Dashboard() {
       }, 100);
     };
     initialFetch();
-  }, [fetchImages]);
+  }, []);
   
   useEffect(() => {
     const interval = setInterval(() => {
@@ -252,13 +252,9 @@ export default function Dashboard() {
     setIsSyncing(true);
 
     try {
-        // First, delete the file from storage
-        const { success: deleteSuccess, error: deleteError } = await deleteWebdavFile(imageToComplete.webdavPath);
-        if (!deleteSuccess) {
-            throw new Error(deleteError || `无法从存储中删除文件。`);
-        }
+        // We no longer delete the file immediately.
+        // The cleanupOrphanedFiles job will handle it later.
         
-        // Then, remove the image from the list and move to history
         const [currentImages, currentHistory] = await Promise.all([getImageList(), getHistoryList()]);
         
         const completedImageRecord: ImageFile = {
@@ -285,9 +281,7 @@ export default function Dashboard() {
                 description: "干得漂亮！下一个任务在等着你。",
             });
         } else {
-            // This is a problematic state. The file might be deleted, but the JSON is not updated.
-            // A page refresh would trigger cleanup and refetch, which should resolve inconsistencies.
-            throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。文件可能已被删除，但记录可能不一致。请刷新页面。");
+            throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。");
         }
     } catch (error: any) {
          toast({
@@ -391,3 +385,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
