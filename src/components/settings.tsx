@@ -6,25 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { getSoundPreference, setSoundPreference } from '@/lib/preferences';
-import { Volume2, VolumeX } from 'lucide-react';
+import { BellRing, BellOff } from 'lucide-react';
 
 export default function Settings() {
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // Ensure this runs only on the client
+    // This effect runs only on the client after mounting.
+    // It prevents hydration mismatch by ensuring that the state
+    // is only set after the component has mounted on the client.
     setIsClient(true);
-    setSoundEnabled(getSoundPreference());
+    setNotificationsEnabled(getSoundPreference());
   }, []);
 
-  const handleSoundToggle = (enabled: boolean) => {
-    setSoundEnabled(enabled);
+  const handleNotificationToggle = (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
     setSoundPreference(enabled);
   };
 
   if (!isClient) {
-    // Render a skeleton or null on the server to avoid hydration mismatches
+    // Render nothing on the server to avoid hydration mismatch.
+    // The component will be fully rendered on the client.
     return null;
   }
 
@@ -38,17 +41,17 @@ export default function Settings() {
             <CardContent>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
-                         {soundEnabled ? <Volume2 className="h-6 w-6 text-primary" /> : <VolumeX className="h-6 w-6 text-muted-foreground" />}
+                         {notificationsEnabled ? <BellRing className="h-6 w-6 text-primary" /> : <BellOff className="h-6 w-6 text-muted-foreground" />}
                         <div>
-                            <Label htmlFor="sound-notification" className="font-semibold">新图片提醒音效</Label>
-                            <p className="text-sm text-muted-foreground">当有新图片上传到队列时，播放提示音。</p>
+                            <Label htmlFor="sound-notification" className="font-semibold">新图片上传提醒</Label>
+                            <p className="text-sm text-muted-foreground">当有新图片上传到队列时，接收弹窗和音效提醒。</p>
                         </div>
                     </div>
                     <Switch
                         id="sound-notification"
-                        checked={soundEnabled}
-                        onCheckedChange={handleSoundToggle}
-                        aria-label="Toggle sound notification"
+                        checked={notificationsEnabled}
+                        onCheckedChange={handleNotificationToggle}
+                        aria-label="Toggle new image notifications"
                     />
                 </div>
             </CardContent>

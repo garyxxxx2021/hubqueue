@@ -37,17 +37,14 @@ export default function Dashboard() {
         const oldImageIds = new Set(imagesRef.current.map(img => img.id));
         const newImages = migratedImageList.filter(img => !oldImageIds.has(img.id));
         
-        if (newImages.length > 0) {
+        if (newImages.length > 0 && getSoundPreference()) {
           const newImageNames = newImages.map(img => img.name).join(', ');
           toast({
             title: '有新图片加入队列',
             description: `新图片: ${newImageNames}`,
           });
-
-          if (getSoundPreference()) {
-            const audio = new Audio('/notification.mp3');
-            audio.play().catch(error => console.error("Failed to play sound:", error));
-          }
+          const audio = new Audio('/notification.mp3');
+          audio.play().catch(error => console.error("Failed to play sound:", error));
         }
       }
 
