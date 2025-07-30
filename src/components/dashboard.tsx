@@ -6,14 +6,12 @@ import type { ImageFile } from '@/types';
 import { ImageUploader } from './image-uploader';
 import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
-import { getImageList, saveImageList, getHistoryList, saveHistoryList } from '@/services/webdav';
+import { getImageList, saveImageList, getHistoryList, saveHistoryList, deleteWebdavFile } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
 
-
-const POLLING_INTERVAL = 5000; // 5 seconds
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -27,6 +25,7 @@ export default function Dashboard() {
   imagesRef.current = images;
 
   const isInitialLoad = useRef(true);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const fetchImages = useCallback(async (showSyncingIndicator = false) => {
     if (showSyncingIndicator) {
@@ -72,7 +71,7 @@ export default function Dashboard() {
             description: error.message || "无法连接到 WebDAV。",
           });
       }
-      console.error("Polling failed:", error);
+      console.error("Data fetch failed:", error);
     } finally {
       if (showSyncingIndicator) {
         setIsSyncing(false);
@@ -80,27 +79,56 @@ export default function Dashboard() {
     }
   }, [toast]);
 
+  const connectWebSocket = useCallback(() => {
+    const protocol = window.location.protocol === 'https' ? 'wss' : 'ws';
+    const host = window.location.host;
+    const wsUrl = `${protocol}://${host}`;
+    
+    wsRef.current = new WebSocket(wsUrl);
+
+    wsRef.current.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    wsRef.current.onmessage = (event) => {
+        if (event.data === 'update') {
+            console.log('Update notification received via WebSocket');
+            fetchImages(true);
+        }
+    };
+
+    wsRef.current.onclose = () => {
+        console.log('WebSocket connection closed. Reconnecting in 5 seconds...');
+        setTimeout(connectWebSocket, 5000);
+    };
+
+    wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        wsRef.current?.close();
+    };
+  }, [fetchImages]);
+
   useEffect(() => {
     const initialFetch = async () => {
       setIsLoading(true);
       await fetchImages(false);
       setIsLoading(false);
-      // Set initial load to false after a short delay to allow the first render to complete
       setTimeout(() => {
         isInitialLoad.current = false;
       }, 100);
     };
+    
     initialFetch();
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  useEffect(() => {
-    const interval = setInterval(() => {
-        fetchImages(true);
-    }, POLLING_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchImages]);
-
   const handleClaimImage = async (id: string) => {
     if (!user) {
         toast({
@@ -124,11 +152,7 @@ export default function Dashboard() {
         const { success, error } = await saveImageList(updatedImages);
         
         if (success) {
-          setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
-          toast({
-            title: "任务已认领",
-            description: `您已认领 ${imageToClaim.name}。`
-          });
+          // No need to setImages locally, WebSocket will trigger update
         } else {
           throw new Error(error || "无法保存更新后的图片列表。");
         }
@@ -166,13 +190,7 @@ export default function Dashboard() {
 
         const { success, error } = await saveImageList(updatedImages);
 
-        if (success) {
-          setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
-          toast({
-            title: "任务已放回",
-            description: `${imageToUnclaim.name} 已返回队列。`,
-          });
-        } else {
+        if (!success) {
           throw new Error(error || "无法保存更新后的图片列表。");
         }
       } else {
@@ -220,13 +238,7 @@ export default function Dashboard() {
         const updatedImages = [newImage, ...currentImages];
 
         const { success, error } = await saveImageList(updatedImages);
-        if (success) {
-            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
-            toast({
-                title: "上传成功",
-                description: `${newImage.name} 已被添加到队列。`
-            });
-        } else {
+        if (!success) {
             throw new Error(error || '无法将图片列表保存到 WebDAV。');
         }
     } catch (error: any) {
@@ -243,16 +255,18 @@ export default function Dashboard() {
   
   const handleCompleteImage = async (id: string, notes: string) => {
     if (!user) return;
-    const imageToComplete = images.find(img => img.id === id);
-    if (!imageToComplete) return;
-
     setIsSyncing(true);
 
     try {
-        const [currentImages, currentHistory] = await Promise.all([
-            getImageList(), 
-            getHistoryList()
-        ]);
+        const currentImages = await getImageList();
+        const imageToComplete = currentImages.find(img => img.id === id);
+        if (!imageToComplete) {
+            toast({ variant: "destructive", title: "错误", description: "找不到要完成的任务。" });
+            return;
+        }
+
+        // We don't delete files from storage anymore
+        const currentHistory = await getHistoryList();
         
         const completedImageRecord: ImageFile = {
             ...imageToComplete,
@@ -270,15 +284,8 @@ export default function Dashboard() {
             saveHistoryList(updatedHistory)
         ]);
 
-        if (saveImagesResult.success && saveHistoryResult.success) {
-            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
-            setHistory(updatedHistory);
-            toast({
-                title: "任务已完成",
-                description: "干得漂亮！下一个任务在等着你。",
-            });
-        } else {
-            throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。");
+        if (!saveImagesResult.success || !saveHistoryResult.success) {
+             throw new Error(saveImagesResult.error || saveHistoryResult.error || "无法更新列表。");
         }
     } catch (error: any) {
          toast({
@@ -286,27 +293,26 @@ export default function Dashboard() {
             title: "操作失败",
             description: error.message,
         });
-        await fetchImages(false); // Refetch to get the latest state
+        await fetchImages(false);
     } finally {
         setIsSyncing(false);
     }
   };
 
   const handleDeleteImage = async (id: string) => {
-    const imageToDelete = images.find(img => img.id === id);
-    if (!imageToDelete) return;
     setIsSyncing(true);
     try {
         const currentImages = await getImageList();
+        const imageToDelete = currentImages.find(img => img.id === id);
+        if (!imageToDelete) {
+             toast({ variant: "destructive", title: "错误", description: "找不到要删除的记录。" });
+             return;
+        }
+
         const updatedImages = currentImages.filter(img => img.id !== id);
         const { success: saveSuccess, error: saveError } = await saveImageList(updatedImages);
-        if(saveSuccess) {
-            setImages(updatedImages.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' })));
-            toast({
-                title: "图片已从索引中删除",
-                description: `${imageToDelete.name} 的记录已被移除。`,
-            });
-        } else {
+
+        if(!saveSuccess) {
             throw new Error(saveError || "无法更新图片列表。");
         }
     } catch (error: any) {
