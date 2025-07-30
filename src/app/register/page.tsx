@@ -91,7 +91,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="relative h-10 w-10">
-                <Logo />
+                <Logo fill width={40} height={40} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">HubQueue</h1>
           </div>

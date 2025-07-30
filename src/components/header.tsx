@@ -40,7 +40,7 @@ export default function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/dashboard" className="flex items-center gap-3">
           <div className="relative h-8 w-8">
-            <Logo />
+            <Logo width={32} height={32} />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">HubQueue</h1>
         </Link>
