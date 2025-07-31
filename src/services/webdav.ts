@@ -1,58 +1,33 @@
+
 'use server';
 
 import { createClient, WebDAVClient } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 import Ably from 'ably';
-import { db } from './sqlite';
-import { StoredUser, UserRole } from './sqlite';
 
-export type { StoredUser, UserRole };
+// Define types locally since sqlite.ts is removed
+export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
+export interface StoredUser {
+  username: string;
+  passwordHash: string;
+  role: UserRole;
+}
 
 
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
 const ABLY_CHANNEL_NAME = 'hubqueue:updates';
 
-interface NotificationPayload {
-  type: 'add' | 'update' | 'complete' | 'delete' | 'users' | 'maintenance';
-  payload: any;
-}
+// --- File Paths on WebDAV ---
+const USERS_FILE = '/users.json';
+const IMAGES_FILE = '/images.json';
+const HISTORY_FILE = '/history.json';
+const MAINTENANCE_FILE = '/maintenance.json';
+const UPLOADS_DIR = '/uploads';
+const LOCK_FILE = '/~lock';
 
-// Internal function to notify Ably
-async function notifyClients(notification: NotificationPayload) {
-  if (!ABLY_API_KEY) {
-    console.warn("Ably API Key not found, skipping notification.");
-    return;
-  }
-  try {
-    const ably = new Ably.Rest(ABLY_API_KEY);
-    const channel = ably.channels.get(ABLY_CHANNEL_NAME);
-    let messageName = '';
-    let messageData = notification.payload;
 
-    switch(notification.type) {
-      case 'add':
-        messageName = 'image_added';
-        break;
-      case 'update':
-        messageName = 'image_updated';
-        break;
-      case 'complete':
-        messageName = 'image_completed';
-        break;
-      case 'delete':
-        messageName = 'image_deleted';
-        break;
-      default:
-        messageName = 'general_update';
-        messageData = { type: notification.type };
-    }
-    
-    await channel.publish(messageName, messageData);
-  } catch (error) {
-    console.error('Failed to notify Ably:', error);
-  }
-}
+// --- WebDAV Client & Locking Mechanism ---
 
 function getWebdavClient(): WebDAVClient {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
@@ -64,7 +39,238 @@ function getWebdavClient(): WebDAVClient {
   });
 }
 
-const UPLOADS_DIR = '/uploads';
+const acquireLock = async (client: WebDAVClient, retries = 5, delay = 200): Promise<boolean> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      // The 'wx' flag means "write if not exists", which is an atomic operation for locking.
+      await client.putFileContents(LOCK_FILE, '', { flag: 'wx' });
+      return true; // Lock acquired
+    } catch (error: any) {
+      if (error.status === 412) { // Precondition Failed - lock file exists
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error; // Other unexpected error
+      }
+    }
+  }
+  return false; // Failed to acquire lock
+};
+
+const releaseLock = async (client: WebDAVClient) => {
+  try {
+    if (await client.exists(LOCK_FILE)) {
+      await client.deleteFile(LOCK_FILE);
+    }
+  } catch (error) {
+    console.error("Failed to release lock, it may need to be manually removed:", error);
+  }
+};
+
+
+// --- Ably Notifications ---
+
+async function notifyClients(messageName: string, messageData: any) {
+  if (!ABLY_API_KEY) {
+    console.warn("Ably API Key not found, skipping notification.");
+    return;
+  }
+  try {
+    const ably = new Ably.Rest(ABLY_API_KEY);
+    const channel = ably.channels.get(ABLY_CHANNEL_NAME);
+    await channel.publish(messageName, messageData);
+  } catch (error) {
+    console.error('Failed to notify Ably:', error);
+  }
+}
+
+
+// --- Generic Read/Write with Locking ---
+
+async function readFile<T>(client: WebDAVClient, filePath: string, defaultValue: T): Promise<T> {
+    try {
+        if (await client.exists(filePath)) {
+            const content = await client.getFileContents(filePath, { format: 'text' }) as string;
+            return JSON.parse(content) as T;
+        }
+    } catch (error) {
+        console.error(`Failed to read or parse ${filePath}, returning default.`, error);
+    }
+    return defaultValue;
+}
+
+
+async function writeFile<T>(client: WebDAVClient, filePath: string, data: T): Promise<{success: boolean, error?: string}> {
+    try {
+        await client.putFileContents(filePath, JSON.stringify(data, null, 2));
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Failed to write to ${filePath}.`, error);
+        return { success: false, error: error.message };
+    }
+}
+
+
+// --- High-Level Data Functions ---
+
+export async function getUsers(): Promise<StoredUser[]> {
+    const client = getWebdavClient();
+    return readFile<StoredUser[]>(client, USERS_FILE, []);
+}
+
+export async function saveUsers(users: StoredUser[]): Promise<{success: boolean, error?: string}> {
+    const client = getWebdavClient();
+    if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to save users. Please try again.' };
+
+    try {
+        const result = await writeFile(client, USERS_FILE, users);
+        if (result.success) {
+            await notifyClients('users_updated', {});
+        }
+        return result;
+    } finally {
+        await releaseLock(client);
+    }
+}
+
+
+export async function addUser(user: StoredUser): Promise<{success: boolean, error?: string}> {
+    const client = getWebdavClient();
+    if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add user. Please try again.' };
+
+    try {
+        const users = await getUsers();
+        if (users.some(u => u.username === user.username)) {
+            return { success: false, error: 'User already exists.' };
+        }
+        users.push(user);
+        return await saveUsers(users);
+    } finally {
+        await releaseLock(client);
+    }
+}
+
+export async function getImageList(): Promise<ImageFile[]> {
+    const client = getWebdavClient();
+    const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
+    return images.map(img => ({
+        ...img,
+        url: `/api/image?path=${encodeURIComponent(img.webdavPath)}`
+    }));
+}
+
+export async function addImage(image: Omit<ImageFile, 'url'>): Promise<{success: boolean, error?: string}> {
+    const client = getWebdavClient();
+    if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add image. Please try again.' };
+
+    try {
+        const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
+        const newImageWithUrl = { ...image, url: `/api/image?path=${encodeURIComponent(image.webdavPath)}` };
+        images.unshift(newImageWithUrl); // Add to the beginning
+        const result = await writeFile(client, IMAGES_FILE, images);
+        if (result.success) {
+            await notifyClients('image_added', newImageWithUrl);
+        }
+        return result;
+    } finally {
+        await releaseLock(client);
+    }
+}
+
+
+export async function updateImage(image: ImageFile): Promise<{success: boolean, error?: string}> {
+    const client = getWebdavClient();
+    if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to update image. Please try again.' };
+
+    try {
+        if (image.status === 'completed') {
+             // Move from images.json to history.json
+            const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
+            const history = await readFile<ImageFile[]>(client, HISTORY_FILE, []);
+
+            const imageToMoveIndex = images.findIndex(img => img.id === image.id);
+            if (imageToMoveIndex === -1) return { success: false, error: 'Image not found in queue.' };
+
+            const [imageToMove] = images.splice(imageToMoveIndex, 1);
+            const updatedImage = { ...imageToMove, ...image };
+            history.unshift(updatedImage); // Add to beginning of history
+
+            const saveImagesResult = await writeFile(client, IMAGES_FILE, images);
+            const saveHistoryResult = await writeFile(client, HISTORY_FILE, history);
+            
+            if (saveImagesResult.success && saveHistoryResult.success) {
+                 await notifyClients('image_completed', { imageId: image.id, completedImage: updatedImage });
+                 return { success: true };
+            } else {
+                // Attempt to rollback, though it's tricky. Best-effort.
+                images.splice(imageToMoveIndex, 0, imageToMove);
+                await writeFile(client, IMAGES_FILE, images);
+                return { success: false, error: 'Failed to complete image transaction.' };
+            }
+
+        } else {
+            // Just update in images.json
+            const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
+            const imageIndex = images.findIndex(img => img.id === image.id);
+            if (imageIndex === -1) return { success: false, error: 'Image not found in queue.' };
+            
+            images[imageIndex] = { ...images[imageIndex], ...image };
+            const result = await writeFile(client, IMAGES_FILE, images);
+            if (result.success) {
+                 await notifyClients('image_updated', images[imageIndex]);
+            }
+            return result;
+        }
+    } finally {
+        await releaseLock(client);
+    }
+}
+
+export async function deleteImage(id: string): Promise<{success: boolean, error?: string}> {
+    const client = getWebdavClient();
+    if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to delete image. Please try again.' };
+
+    try {
+        const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
+        const filteredImages = images.filter(img => img.id !== id);
+
+        if (images.length === filteredImages.length) {
+            return { success: false, error: 'Image not found to delete.' };
+        }
+
+        const result = await writeFile(client, IMAGES_FILE, filteredImages);
+        if (result.success) {
+            await notifyClients('image_deleted', { imageId: id });
+        }
+        return result;
+    } finally {
+        await releaseLock(client);
+    }
+}
+
+
+export async function getHistoryList(): Promise<ImageFile[]> {
+    const client = getWebdavClient();
+    const history = await readFile<ImageFile[]>(client, HISTORY_FILE, []);
+    return history.map(img => ({
+        ...img,
+        url: `/api/image?path=${encodeURIComponent(img.webdavPath)}`
+    }));
+}
+
+
+export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
+    const client = getWebdavClient();
+    return readFile<{ isMaintenance: boolean }>(client, MAINTENANCE_FILE, { isMaintenance: false });
+}
+
+export async function saveMaintenanceStatus(status: { isMaintenance: boolean }): Promise<{ success: boolean, error?: string }> {
+    const client = getWebdavClient();
+    const result = await writeFile(client, MAINTENANCE_FILE, status);
+    if(result.success) {
+        await notifyClients('maintenance_updated', {});
+    }
+    return result;
+}
 
 export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
   const client = getWebdavClient();
@@ -87,125 +293,5 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
   } catch (error: any) {
     console.error('Failed to upload to WebDAV', error);
     return { success: false, error: error.message || 'An unknown error occurred during upload.' };
-  }
-}
-
-
-export async function getImageList(): Promise<ImageFile[]> {
-    return db.prepare("SELECT * FROM images WHERE status != 'completed' ORDER BY createdAt DESC").all() as ImageFile[];
-}
-
-export async function addImage(image: Omit<ImageFile, 'url'>): Promise<{success: boolean, error?: string}> {
-    try {
-        const newImage: ImageFile = {
-            ...image,
-            url: `/api/image?path=${encodeURIComponent(image.webdavPath)}`,
-        }
-        db.prepare(
-            `INSERT INTO images (id, name, webdavPath, url, status, uploadedBy, createdAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
-        ).run(newImage.id, newImage.name, newImage.webdavPath, newImage.url, newImage.status, newImage.uploadedBy, newImage.createdAt);
-
-        await notifyClients({ type: 'add', payload: newImage });
-        return { success: true };
-    } catch(error: any) {
-        console.error('Failed to add image to DB', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function updateImage(image: ImageFile): Promise<{success: boolean, error?: string}> {
-    try {
-        db.prepare(
-            `UPDATE images 
-             SET status = ?, claimedBy = ?, completedBy = ?, completionNotes = ?, completedAt = ?
-             WHERE id = ?`
-        ).run(image.status, image.claimedBy, image.completedBy, image.completionNotes, image.completedAt, image.id);
-        
-        const notificationType = image.status === 'completed' ? 'complete' : 'update';
-        const payload = image.status === 'completed' 
-            ? { imageId: image.id, completedImage: image }
-            : image;
-
-        await notifyClients({ type: notificationType, payload });
-        return { success: true };
-    } catch (error: any) {
-        console.error('Failed to update image in DB', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function deleteImage(id: string): Promise<{success: boolean, error?: string}> {
-    try {
-        db.prepare("DELETE FROM images WHERE id = ?").run(id);
-        await notifyClients({ type: 'delete', payload: { imageId: id } });
-        return { success: true };
-    } catch (error: any) {
-        console.error('Failed to delete image from DB', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getHistoryList(): Promise<ImageFile[]> {
-    return db.prepare("SELECT * FROM images WHERE status = 'completed' ORDER BY completedAt DESC").all() as ImageFile[];
-}
-
-export async function getUsers(): Promise<StoredUser[]> {
-    return db.prepare("SELECT * FROM users").all() as StoredUser[];
-}
-
-export async function saveUsers(users: StoredUser[]): Promise<{success: boolean, error?: string}> {
-    const insert = db.prepare('INSERT OR REPLACE INTO users (username, passwordHash, role) VALUES (?, ?, ?)');
-    const deleteAll = db.prepare('DELETE FROM users');
-
-    const transaction = db.transaction((userList: StoredUser[]) => {
-        deleteAll.run();
-        for (const user of userList) {
-            insert.run(user.username, user.passwordHash, user.role);
-        }
-    });
-
-    try {
-        transaction(users);
-        await notifyClients({ type: 'users', payload: {} });
-        return { success: true };
-    } catch (error: any) {
-        console.error('Failed to save users to DB', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function addUser(user: StoredUser): Promise<{success: boolean, error?: string}> {
-    try {
-        db.prepare(
-            'INSERT INTO users (username, passwordHash, role) VALUES (?, ?, ?)'
-        ).run(user.username, user.passwordHash, user.role);
-        return { success: true };
-    } catch (error: any) {
-        if ((error as any).code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
-             return { success: false, error: 'User already exists.' };
-        }
-        console.error('Failed to add user to DB', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
-  try {
-    const row: any = db.prepare("SELECT value FROM app_settings WHERE key = 'maintenanceMode'").get();
-    return { isMaintenance: row ? row.value === 'true' : false };
-  } catch (error) {
-    return { isMaintenance: false };
-  }
-}
-
-export async function saveMaintenanceStatus(status: { isMaintenance: boolean }): Promise<{ success: boolean, error?: string }> {
-  try {
-    db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('maintenanceMode', ?)")
-      .run(status.isMaintenance.toString());
-    await notifyClients({ type: 'maintenance', payload: {} });
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: (error as Error).message };
   }
 }

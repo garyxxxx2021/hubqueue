@@ -83,12 +83,16 @@ export default function Dashboard() {
         } else if (name === 'image_deleted') {
             const { imageId } = data;
             setImages(prev => prev.filter(img => img.id !== imageId));
+        } else if (name === 'users_updated' || name === 'maintenance_updated') {
+            // A simple way to react to broad changes is to refetch all data
+            // This could be optimized to be more granular
+            fetchInitialData();
         }
       });
     }
     // No cleanup function to keep the connection alive across SPA navigations
     // The browser will handle closing the connection on page exit.
-  }, [fetchInitialData]);
+  }, [fetchInitialData, toast]);
   
   const handleClaimImage = async (id: string) => {
     if (!user) {
@@ -223,6 +227,7 @@ export default function Dashboard() {
         completionNotes: notes,
     };
     
+    // UI update is now handled by Ably broadcast, but we can do a preemptive update for responsiveness
     setImages(prev => prev.filter(img => img.id !== id));
     setHistory(prev => [completedImage, ...prev]);
 
@@ -237,9 +242,9 @@ export default function Dashboard() {
             title: "操作失败",
             description: error.message,
         });
+        // Rollback optimistic update
         setImages(originalImages);
-        // We don't have the original history to roll back to, so we may need to refetch
-        fetchInitialData();
+        fetchInitialData(); // Refetch to be safe
     } finally {
         setIsSyncing(false);
     }
