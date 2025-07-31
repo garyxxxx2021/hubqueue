@@ -60,30 +60,25 @@ export default function Dashboard() {
         const { name, data } = message;
         console.log(`Received Ably message: ${name}`, data);
 
-        if (name === 'image_added') {
-            const newImage = data as ImageFile;
-            setImages(prev => [newImage, ...prev]);
-
-            if (getNotificationPreference()) {
-                toast({
-                    title: '有新图片加入队列',
-                    description: `新图片: ${newImage.name}`,
-                });
+        if (name === 'queue_updated') {
+            const { images: newImages, history: newHistory } = data;
+            const hadImageAdded = newImages.length > imagesRef.current.length;
+            
+            setImages(newImages);
+            setHistory(newHistory);
+            
+            if (hadImageAdded) {
+                 if (getNotificationPreference()) {
+                    toast({
+                        title: '有新图片加入队列',
+                        description: `新图片: ${newImages[0].name}`,
+                    });
+                }
+                if (getSoundPreference()) {
+                    new Audio('/notification.mp3').play().catch(() => {});
+                }
             }
-            if (getSoundPreference()) {
-                new Audio('/notification.mp3').play().catch(() => {});
-            }
-        } else if (name === 'image_updated') {
-            const updatedImage = data as ImageFile;
-            setImages(prev => prev.map(img => img.id === updatedImage.id ? updatedImage : img));
-        } else if (name === 'image_completed') {
-            const { imageId, completedImage } = data;
-            setImages(prev => prev.filter(img => img.id !== imageId));
-            setHistory(prev => [completedImage, ...prev]);
-        } else if (name === 'image_deleted') {
-            const { imageId } = data;
-            setImages(prev => prev.filter(img => img.id !== imageId));
-        } else if (name === 'users_updated' || name === 'maintenance_updated') {
+        } else if (name === 'system_updated') {
             // A simple way to react to broad changes is to refetch all data
             // This could be optimized to be more granular
             fetchInitialData();
@@ -118,6 +113,7 @@ export default function Dashboard() {
 
     setIsSyncing(true);
     const updatedImage = { ...imageToClaim, status: 'in-progress', claimedBy: user.username } as ImageFile;
+    // Optimistic UI update
     setImages(prev => prev.map(img => img.id === id ? updatedImage : img));
 
     try {
@@ -259,6 +255,7 @@ export default function Dashboard() {
     }
 
     setIsSyncing(true);
+    // Optimistic UI update
     setImages(prev => prev.filter(img => img.id !== id));
     
     try {

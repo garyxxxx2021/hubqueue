@@ -69,17 +69,48 @@ const releaseLock = async (client: WebDAVClient) => {
 
 // --- Ably Notifications ---
 
-async function notifyClients(messageName: string, messageData: any) {
+async function notifyQueueUpdate(client: WebDAVClient) {
   if (!ABLY_API_KEY) {
+    console.warn("Ably API Key not found, skipping notification.");
+    return;
+  }
+  try {
+    // Read the latest state of both lists to send the complete data
+    const [images, history] = await Promise.all([
+        readFile<ImageFile[]>(client, IMAGES_FILE, []),
+        readFile<ImageFile[]>(client, HISTORY_FILE, [])
+    ]);
+
+    const imagesWithUrls = images.map(img => ({
+        ...img,
+        url: `/api/image?path=${encodeURIComponent(img.webdavPath)}`
+    }));
+
+     const historyWithUrls = history.map(img => ({
+        ...img,
+        url: `/api/image?path=${encodeURIComponent(img.webdavPath)}`
+    }));
+
+
+    const ably = new Ably.Rest(ABLY_API_KEY);
+    const channel = ably.channels.get(ABLY_CHANNEL_NAME);
+    await channel.publish('queue_updated', { images: imagesWithUrls, history: historyWithUrls });
+  } catch (error) {
+    console.error('Failed to notify Ably with queue update:', error);
+  }
+}
+
+async function notifySystemUpdate() {
+   if (!ABLY_API_KEY) {
     console.warn("Ably API Key not found, skipping notification.");
     return;
   }
   try {
     const ably = new Ably.Rest(ABLY_API_KEY);
     const channel = ably.channels.get(ABLY_CHANNEL_NAME);
-    await channel.publish(messageName, messageData);
+    await channel.publish('system_updated', {});
   } catch (error) {
-    console.error('Failed to notify Ably:', error);
+    console.error('Failed to notify Ably with system update:', error);
   }
 }
 
@@ -122,10 +153,9 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to save users. Please try again.' };
 
     try {
-        // No need to re-read here, as this function receives the full desired state.
         const result = await writeFile(client, USERS_FILE, users);
         if (result.success) {
-            await notifyClients('users_updated', {});
+            await notifySystemUpdate();
         }
         return result;
     } finally {
@@ -139,7 +169,6 @@ export async function addUser(user: StoredUser): Promise<{success: boolean, erro
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add user. Please try again.' };
 
     try {
-        // Re-read the user list after acquiring the lock to ensure we have the latest data
         const users = await readFile<StoredUser[]>(client, USERS_FILE, []);
         if (users.some(u => u.username === user.username)) {
             return { success: false, error: 'User already exists.' };
@@ -148,7 +177,7 @@ export async function addUser(user: StoredUser): Promise<{success: boolean, erro
         
         const result = await writeFile(client, USERS_FILE, users);
         if (result.success) {
-            await notifyClients('users_updated', {});
+            await notifySystemUpdate();
         }
         return result;
     } finally {
@@ -170,13 +199,11 @@ export async function addImage(image: Omit<ImageFile, 'url'>): Promise<{success:
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add image. Please try again.' };
 
     try {
-        // Re-read after lock
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
-        const newImageWithUrl = { ...image, url: `/api/image?path=${encodeURIComponent(image.webdavPath)}` };
-        images.unshift(newImageWithUrl); // Add to the beginning
+        images.unshift({ ...image, url: '' }); // URL is generated on client or on read, not stored
         const result = await writeFile(client, IMAGES_FILE, images);
         if (result.success) {
-            await notifyClients('image_added', newImageWithUrl);
+            await notifyQueueUpdate(client);
         }
         return result;
     } finally {
@@ -191,42 +218,41 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
 
     try {
         if (image.status === 'completed') {
-             // Move from images.json to history.json
-            // Re-read after lock
-            const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
-            const history = await readFile<ImageFile[]>(client, HISTORY_FILE, []);
+            const [images, history] = await Promise.all([
+                readFile<ImageFile[]>(client, IMAGES_FILE, []),
+                readFile<ImageFile[]>(client, HISTORY_FILE, [])
+            ]);
 
             const imageToMoveIndex = images.findIndex(img => img.id === image.id);
             if (imageToMoveIndex === -1) return { success: false, error: 'Image not found in queue.' };
 
             const [imageToMove] = images.splice(imageToMoveIndex, 1);
-            const updatedImage = { ...imageToMove, ...image };
-            history.unshift(updatedImage); // Add to beginning of history
+            const updatedImage = { ...imageToMove, ...image, url: '' };
+            history.unshift(updatedImage); 
 
             const saveImagesResult = await writeFile(client, IMAGES_FILE, images);
             const saveHistoryResult = await writeFile(client, HISTORY_FILE, history);
             
             if (saveImagesResult.success && saveHistoryResult.success) {
-                 await notifyClients('image_completed', { imageId: image.id, completedImage: updatedImage });
+                 await notifyQueueUpdate(client);
                  return { success: true };
             } else {
-                // This is a critical failure. A simple rollback might not be enough if one file wrote and the other didn't.
-                // For now, log the error. A more robust system might have a recovery mechanism.
                 console.error(`CRITICAL: Failed to complete image transaction for ID ${image.id}. Images file success: ${saveImagesResult.success}, History file success: ${saveHistoryResult.success}`);
                 return { success: false, error: 'Failed to complete image transaction.' };
             }
 
         } else {
-            // Just update in images.json
-            // Re-read after lock
             const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
             const imageIndex = images.findIndex(img => img.id === image.id);
             if (imageIndex === -1) return { success: false, error: 'Image not found in queue.' };
             
-            images[imageIndex] = { ...images[imageIndex], ...image };
+            // Do not store the full URL
+            const { url, ...imageToStore } = image;
+            images[imageIndex] = { ...images[imageIndex], ...imageToStore };
+
             const result = await writeFile(client, IMAGES_FILE, images);
             if (result.success) {
-                 await notifyClients('image_updated', images[imageIndex]);
+                 await notifyQueueUpdate(client);
             }
             return result;
         }
@@ -240,7 +266,6 @@ export async function deleteImage(id: string): Promise<{success: boolean, error?
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to delete image. Please try again.' };
 
     try {
-        // Re-read after lock
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
         const filteredImages = images.filter(img => img.id !== id);
 
@@ -250,7 +275,7 @@ export async function deleteImage(id: string): Promise<{success: boolean, error?
 
         const result = await writeFile(client, IMAGES_FILE, filteredImages);
         if (result.success) {
-            await notifyClients('image_deleted', { imageId: id });
+            await notifyQueueUpdate(client);
         }
         return result;
     } finally {
@@ -278,7 +303,7 @@ export async function saveMaintenanceStatus(status: { isMaintenance: boolean }):
     const client = getWebdavClient();
     const result = await writeFile(client, MAINTENANCE_FILE, status);
     if(result.success) {
-        await notifyClients('maintenance_updated', {});
+        await notifySystemUpdate();
     }
     return result;
 }
