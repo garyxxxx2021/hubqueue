@@ -28,7 +28,8 @@ export default function Dashboard() {
   const ablyRef = useRef<Ably.Realtime | null>(null);
 
   const fetchInitialData = useCallback(async () => {
-    setIsLoading(true);
+    // We don't want the main loading state for background refreshes
+    // setIsLoading(true); 
     try {
       const [imageList, historyList] = await Promise.all([getImageList(), getHistoryList()]);
       const migratedImageList = imageList.map(img => ({ ...img, uploadedBy: img.uploadedBy || 'unknown' }));
@@ -41,12 +42,17 @@ export default function Dashboard() {
         description: error.message || "无法连接到数据库。",
       });
     } finally {
-        setIsLoading(false);
+        if (isLoading) {
+            setIsLoading(false);
+        }
     }
-  }, [toast]);
+  }, [toast, isLoading]);
   
   useEffect(() => {
     fetchInitialData();
+
+    // Set up periodic refresh as a fallback
+    const intervalId = setInterval(fetchInitialData, 60000); // Refresh every 60 seconds
 
     if (!ablyRef.current) {
       ablyRef.current = new Ably.Realtime({ authUrl: '/api/ably-auth' });
@@ -85,9 +91,13 @@ export default function Dashboard() {
         }
       });
     }
-    // No cleanup function to keep the connection alive across SPA navigations
-    // The browser will handle closing the connection on page exit.
-  }, [fetchInitialData, toast]);
+
+    return () => {
+        clearInterval(intervalId);
+        // We don't close the Ably connection here to keep it alive across SPA navigations.
+        // The browser will handle closing the connection on page exit.
+    };
+  }, [fetchInitialData]);
   
   const handleClaimImage = async (id: string) => {
     if (!user) {
