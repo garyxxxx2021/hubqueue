@@ -122,6 +122,7 @@ export async function saveUsers(users: StoredUser[]): Promise<{success: boolean,
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to save users. Please try again.' };
 
     try {
+        // No need to re-read here, as this function receives the full desired state.
         const result = await writeFile(client, USERS_FILE, users);
         if (result.success) {
             await notifyClients('users_updated', {});
@@ -138,12 +139,18 @@ export async function addUser(user: StoredUser): Promise<{success: boolean, erro
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add user. Please try again.' };
 
     try {
-        const users = await getUsers();
+        // Re-read the user list after acquiring the lock to ensure we have the latest data
+        const users = await readFile<StoredUser[]>(client, USERS_FILE, []);
         if (users.some(u => u.username === user.username)) {
             return { success: false, error: 'User already exists.' };
         }
         users.push(user);
-        return await saveUsers(users);
+        
+        const result = await writeFile(client, USERS_FILE, users);
+        if (result.success) {
+            await notifyClients('users_updated', {});
+        }
+        return result;
     } finally {
         await releaseLock(client);
     }
@@ -163,6 +170,7 @@ export async function addImage(image: Omit<ImageFile, 'url'>): Promise<{success:
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to add image. Please try again.' };
 
     try {
+        // Re-read after lock
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
         const newImageWithUrl = { ...image, url: `/api/image?path=${encodeURIComponent(image.webdavPath)}` };
         images.unshift(newImageWithUrl); // Add to the beginning
@@ -184,6 +192,7 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
     try {
         if (image.status === 'completed') {
              // Move from images.json to history.json
+            // Re-read after lock
             const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
             const history = await readFile<ImageFile[]>(client, HISTORY_FILE, []);
 
@@ -201,14 +210,15 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
                  await notifyClients('image_completed', { imageId: image.id, completedImage: updatedImage });
                  return { success: true };
             } else {
-                // Attempt to rollback, though it's tricky. Best-effort.
-                images.splice(imageToMoveIndex, 0, imageToMove);
-                await writeFile(client, IMAGES_FILE, images);
+                // This is a critical failure. A simple rollback might not be enough if one file wrote and the other didn't.
+                // For now, log the error. A more robust system might have a recovery mechanism.
+                console.error(`CRITICAL: Failed to complete image transaction for ID ${image.id}. Images file success: ${saveImagesResult.success}, History file success: ${saveHistoryResult.success}`);
                 return { success: false, error: 'Failed to complete image transaction.' };
             }
 
         } else {
             // Just update in images.json
+            // Re-read after lock
             const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
             const imageIndex = images.findIndex(img => img.id === image.id);
             if (imageIndex === -1) return { success: false, error: 'Image not found in queue.' };
@@ -230,6 +240,7 @@ export async function deleteImage(id: string): Promise<{success: boolean, error?
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to delete image. Please try again.' };
 
     try {
+        // Re-read after lock
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
         const filteredImages = images.filter(img => img.id !== id);
 
