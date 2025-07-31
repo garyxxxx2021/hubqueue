@@ -1,10 +1,14 @@
-
 'use server';
 
 import { createClient, WebDAVClient } from 'webdav';
 import { webdavConfig } from '@/config/webdav';
 import type { ImageFile } from '@/types';
 import Ably from 'ably';
+import { db } from './sqlite';
+import { StoredUser, UserRole } from './sqlite';
+
+export type { StoredUser, UserRole };
+
 
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
 const ABLY_CHANNEL_NAME = 'hubqueue:updates';
@@ -50,7 +54,7 @@ async function notifyClients(notification: NotificationPayload) {
   }
 }
 
-function getClient(): WebDAVClient {
+function getWebdavClient(): WebDAVClient {
   if (!webdavConfig.url || !webdavConfig.username || !webdavConfig.password) {
     throw new Error('WebDAV configuration is incomplete. Please check your .env file.');
   }
@@ -60,50 +64,10 @@ function getClient(): WebDAVClient {
   });
 }
 
-export type UserRole = 'admin' | 'trusted' | 'user' | 'banned';
-
-export interface StoredUser {
-  username: string;
-  passwordHash: string;
-  role: UserRole;
-}
-
-// This is the old format, kept for migration purposes.
-interface LegacyStoredUser {
-  username: string;
-  passwordHash: string;
-  isAdmin: boolean;
-  isTrusted: boolean;
-  isBanned?: boolean;
-}
-
-
-function migrateUser(user: LegacyStoredUser | StoredUser): StoredUser {
-    if ('role' in user) {
-        return user; // Already new format
-    }
-    // Migration logic for old format
-    const legacyUser = user as LegacyStoredUser;
-    let role: UserRole = 'user';
-    if (legacyUser.isAdmin) {
-        role = 'admin';
-    } else if (legacyUser.isTrusted) {
-        role = 'trusted';
-    }
-    if (legacyUser.isBanned) {
-        role = 'banned';
-    }
-    return {
-        username: legacyUser.username,
-        passwordHash: legacyUser.passwordHash,
-        role: role
-    };
-}
-
 const UPLOADS_DIR = '/uploads';
 
 export async function uploadToWebdav(fileName: string, dataUrl: string): Promise<{success: boolean, path?: string, error?: string}> {
-  const client = getClient();
+  const client = getWebdavClient();
   const buffer = Buffer.from(dataUrl.split(',')[1], 'base64');
   
   try {
@@ -126,121 +90,122 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
   }
 }
 
-const IMAGES_JSON_PATH = '/images.json';
+
 export async function getImageList(): Promise<ImageFile[]> {
-  const client = getClient();
-  try {
-    if (await client.exists(IMAGES_JSON_PATH)) {
-      const content = await client.getFileContents(IMAGES_JSON_PATH, { format: 'text' });
-      return JSON.parse(content as string);
-    }
-    return [];
-  } catch (error: any) {
-    console.error('Failed to get image list from WebDAV', error);
-    return [];
-  }
+    return db.prepare("SELECT * FROM images WHERE status != 'completed' ORDER BY createdAt DESC").all() as ImageFile[];
 }
 
-export async function saveImageList(images: ImageFile[], notification?: NotificationPayload): Promise<{success: boolean, error?: string}> {
-  const client = getClient();
-  try {
-    await client.putFileContents(IMAGES_JSON_PATH, JSON.stringify(images, null, 2));
-    console.log('Image list saved successfully to WebDAV.');
-    if (notification) {
-        await notifyClients(notification);
+export async function addImage(image: Omit<ImageFile, 'url'>): Promise<{success: boolean, error?: string}> {
+    try {
+        const newImage: ImageFile = {
+            ...image,
+            url: `/api/image?path=${encodeURIComponent(image.webdavPath)}`,
+        }
+        db.prepare(
+            `INSERT INTO images (id, name, webdavPath, url, status, uploadedBy, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).run(newImage.id, newImage.name, newImage.webdavPath, newImage.url, newImage.status, newImage.uploadedBy, newImage.createdAt);
+
+        await notifyClients({ type: 'add', payload: newImage });
+        return { success: true };
+    } catch(error: any) {
+        console.error('Failed to add image to DB', error);
+        return { success: false, error: error.message };
     }
-    return { success: true };
-  } catch (error: any) {
-    console.error('Failed to save image list to WebDAV', error);
-    return { success: false, error: error.message || 'An unknown error occurred during save.' };
-  }
 }
 
-const HISTORY_JSON_PATH = '/history.json';
+export async function updateImage(image: ImageFile): Promise<{success: boolean, error?: string}> {
+    try {
+        db.prepare(
+            `UPDATE images 
+             SET status = ?, claimedBy = ?, completedBy = ?, completionNotes = ?, completedAt = ?
+             WHERE id = ?`
+        ).run(image.status, image.claimedBy, image.completedBy, image.completionNotes, image.completedAt, image.id);
+        
+        const notificationType = image.status === 'completed' ? 'complete' : 'update';
+        const payload = image.status === 'completed' 
+            ? { imageId: image.id, completedImage: image }
+            : image;
+
+        await notifyClients({ type: notificationType, payload });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to update image in DB', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteImage(id: string): Promise<{success: boolean, error?: string}> {
+    try {
+        db.prepare("DELETE FROM images WHERE id = ?").run(id);
+        await notifyClients({ type: 'delete', payload: { imageId: id } });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to delete image from DB', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function getHistoryList(): Promise<ImageFile[]> {
-  const client = getClient();
-  try {
-    if (await client.exists(HISTORY_JSON_PATH)) {
-      const content = await client.getFileContents(HISTORY_JSON_PATH, { format: 'text' });
-      return JSON.parse(content as string);
-    }
-    return [];
-  } catch (error: any) {
-    console.error('Failed to get history list from WebDAV', error);
-    return [];
-  }
+    return db.prepare("SELECT * FROM images WHERE status = 'completed' ORDER BY completedAt DESC").all() as ImageFile[];
 }
 
-export async function saveHistoryList(images: ImageFile[]): Promise<{success: boolean, error?: string}> {
-  const client = getClient();
-  try {
-    await client.putFileContents(HISTORY_JSON_PATH, JSON.stringify(images, null, 2));
-    console.log('History list saved successfully to WebDAV.');
-    // History updates are usually secondary to image list updates, so no separate notification is sent
-    // unless specifically needed. The 'complete' action handles this.
-    return { success: true };
-  } catch (error: any) {
-    console.error('Failed to save history list to WebDAV', error);
-    return { success: false, error: error.message || 'An unknown error occurred during save.' };
-  }
-}
-
-const USERS_JSON_PATH = '/users.json';
 export async function getUsers(): Promise<StoredUser[]> {
-  const client = getClient();
-  try {
-    if (await client.exists(USERS_JSON_PATH)) {
-      const content = await client.getFileContents(USERS_JSON_PATH, { format: 'text' });
-      const users = JSON.parse(content as string) as (StoredUser | LegacyStoredUser)[];
-      // Check if migration is needed
-      const needsMigration = users.some(u => !('role' in u));
-      const migratedUsers = users.map(migrateUser);
-
-      // If migration occurred, save the updated file
-      if (needsMigration) {
-        await saveUsers(migratedUsers);
-      }
-      return migratedUsers;
-    }
-    return [];
-  } catch (error) {
-    console.error("Failed to get or migrate users:", error);
-    return [];
-  }
+    return db.prepare("SELECT * FROM users").all() as StoredUser[];
 }
 
 export async function saveUsers(users: StoredUser[]): Promise<{success: boolean, error?: string}> {
-  const client = getClient();
-  try {
-    await client.putFileContents(USERS_JSON_PATH, JSON.stringify(users, null, 2));
-    await notifyClients({ type: 'users', payload: {} });
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+    const insert = db.prepare('INSERT OR REPLACE INTO users (username, passwordHash, role) VALUES (?, ?, ?)');
+    const deleteAll = db.prepare('DELETE FROM users');
+
+    const transaction = db.transaction((userList: StoredUser[]) => {
+        deleteAll.run();
+        for (const user of userList) {
+            insert.run(user.username, user.passwordHash, user.role);
+        }
+    });
+
+    try {
+        transaction(users);
+        await notifyClients({ type: 'users', payload: {} });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to save users to DB', error);
+        return { success: false, error: error.message };
+    }
 }
 
-const MAINTENANCE_JSON_PATH = '/maintenance.json';
-export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
-  const client = getClient();
-  try {
-    if (await client.exists(MAINTENANCE_JSON_PATH)) {
-      const content = await client.getFileContents(MAINTENANCE_JSON_PATH, { format: 'text' });
-      return JSON.parse(content as string);
+export async function addUser(user: StoredUser): Promise<{success: boolean, error?: string}> {
+    try {
+        db.prepare(
+            'INSERT INTO users (username, passwordHash, role) VALUES (?, ?, ?)'
+        ).run(user.username, user.passwordHash, user.role);
+        return { success: true };
+    } catch (error: any) {
+        if ((error as any).code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+             return { success: false, error: 'User already exists.' };
+        }
+        console.error('Failed to add user to DB', error);
+        return { success: false, error: error.message };
     }
-    return { isMaintenance: false };
+}
+
+export async function getMaintenanceStatus(): Promise<{ isMaintenance: boolean }> {
+  try {
+    const row: any = db.prepare("SELECT value FROM app_settings WHERE key = 'maintenanceMode'").get();
+    return { isMaintenance: row ? row.value === 'true' : false };
   } catch (error) {
     return { isMaintenance: false };
   }
 }
 
 export async function saveMaintenanceStatus(status: { isMaintenance: boolean }): Promise<{ success: boolean, error?: string }> {
-  const client = getClient();
   try {
-    await client.putFileContents(MAINTENANCE_JSON_PATH, JSON.stringify(status, null, 2));
+    db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('maintenanceMode', ?)")
+      .run(status.isMaintenance.toString());
     await notifyClients({ type: 'maintenance', payload: {} });
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 }
