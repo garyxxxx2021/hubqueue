@@ -13,7 +13,7 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading, isMaintenanceMode } = useAuth();
+  const { user, isLoading, isMaintenanceMode, isSelfDestructed } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -89,6 +89,10 @@ export default function MainLayout({
             </main>
         </div>
     );
+  }
+
+  if (isSelfDestructed && !user.isAdmin) {
+    return <div className="w-screen h-screen bg-background" />;
   }
 
   if (isMaintenanceMode && !user.isAdmin) {

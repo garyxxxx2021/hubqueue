@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers, checkSelfDestructStatus } from '@/services/webdav'; 
 
 interface User {
   username: string;
@@ -15,6 +15,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isMaintenanceMode: boolean;
+  isSelfDestructed: boolean;
   login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isSelfDestructed, setIsSelfDestructed] = useState(false);
 
   const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
     try {
@@ -88,6 +90,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const loadUserFromCookie = async () => {
       setIsLoading(true);
       try {
+          const selfDestructStatus = await checkSelfDestructStatus();
+          setIsSelfDestructed(selfDestructStatus.selfDestruct);
+
           const storedSession = Cookies.get(USER_COOKIE_KEY);
           if (storedSession) {
             const sessionData: SessionData = JSON.parse(storedSession);
@@ -216,7 +221,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
-  const value = { user, isMaintenanceMode, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
+  const value = { user, isMaintenanceMode, isSelfDestructed, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
 
   return (
     <AuthContext.Provider value={value}>

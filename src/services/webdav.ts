@@ -218,6 +218,7 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
 
     try {
         if (image.status === 'completed') {
+            // Re-read after acquiring lock
             const [images, history] = await Promise.all([
                 readFile<ImageFile[]>(client, IMAGES_FILE, []),
                 readFile<ImageFile[]>(client, HISTORY_FILE, [])
@@ -242,6 +243,7 @@ export async function updateImage(image: ImageFile): Promise<{success: boolean, 
             }
 
         } else {
+            // Re-read after acquiring lock
             const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
             const imageIndex = images.findIndex(img => img.id === image.id);
             if (imageIndex === -1) return { success: false, error: 'Image not found in queue.' };
@@ -266,6 +268,7 @@ export async function deleteImage(id: string): Promise<{success: boolean, error?
     if (!await acquireLock(client)) return { success: false, error: 'Could not acquire a lock to delete image. Please try again.' };
 
     try {
+        // Re-read after acquiring lock
         const images = await readFile<ImageFile[]>(client, IMAGES_FILE, []);
         const filteredImages = images.filter(img => img.id !== id);
 
@@ -330,4 +333,33 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
     console.error('Failed to upload to WebDAV', error);
     return { success: false, error: error.message || 'An unknown error occurred during upload.' };
   }
+}
+
+export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean }> {
+    const client = getWebdavClient();
+    const [images, history] = await Promise.all([
+        readFile<ImageFile[]>(client, IMAGES_FILE, []),
+        readFile<ImageFile[]>(client, HISTORY_FILE, [])
+    ]);
+
+    const allImages = [...images, ...history];
+    if (allImages.length === 0) {
+        // If there are no images, we can consider it as not having recent activity.
+        // Or we can choose to only trigger after the first image. Let's assume no images = active.
+        return { selfDestruct: false }; 
+    }
+
+    const mostRecentUploadTimestamp = allImages.reduce((latest, img) => {
+        const createdAt = img.createdAt || 0;
+        return createdAt > latest ? createdAt : latest;
+    }, 0);
+
+    if (mostRecentUploadTimestamp === 0) {
+        return { selfDestruct: false };
+    }
+
+    const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
+    const isInactive = (Date.now() - mostRecentUploadTimestamp) > fiveDaysInMillis;
+
+    return { selfDestruct: isInactive };
 }
