@@ -336,25 +336,12 @@ export async function uploadToWebdav(fileName: string, dataUrl: string): Promise
 }
 
 export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean }> {
-    const client = getWebdavClient();
-    const [images, history] = await Promise.all([
-        readFile<ImageFile[]>(client, IMAGES_FILE, []),
-        readFile<ImageFile[]>(client, HISTORY_FILE, [])
-    ]);
-
-    const allImages = [...images, ...history];
-    if (allImages.length === 0) {
+    const lastTime = await getLastUploadTime();
+    if (lastTime === null) {
         return { selfDestruct: false };
     }
-
-    const mostRecentTimestamp = allImages.reduce((latest, img) => {
-        const createdAt = img.createdAt || 0;
-        return createdAt > latest ? createdAt : latest;
-    }, 0);
-
     const fiveDaysAgo = Date.now() - (5 * 24 * 60 * 60 * 1000);
-
-    return { selfDestruct: mostRecentTimestamp < fiveDaysAgo };
+    return { selfDestruct: lastTime < fiveDaysAgo };
 }
 
 export async function getLastUploadTime(): Promise<number | null> {
@@ -364,14 +351,16 @@ export async function getLastUploadTime(): Promise<number | null> {
         readFile<ImageFile[]>(client, HISTORY_FILE, [])
     ]);
     
-    const allImages = [...images, ...history];
-    if (allImages.length === 0) {
+    const allItems = [...images, ...history];
+    if (allItems.length === 0) {
         return null;
     }
 
-    const mostRecentTimestamp = allImages.reduce((latest, img) => {
-        const createdAt = img.createdAt || 0;
-        return createdAt > latest ? createdAt : latest;
+    const mostRecentTimestamp = allItems.reduce((latest, item) => {
+        const createdAt = item.createdAt || 0;
+        const completedAt = item.completedAt || 0;
+        const mostRecentForItem = Math.max(createdAt, completedAt);
+        return mostRecentForItem > latest ? mostRecentForItem : latest;
     }, 0);
 
     return mostRecentTimestamp > 0 ? mostRecentTimestamp : null;
