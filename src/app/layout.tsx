@@ -2,7 +2,6 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/AuthContext';
-import TopLoaderWrapper from '@/components/top-loader';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
@@ -33,7 +32,6 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <TopLoaderWrapper />
             {children}
             <Toaster />
           </ThemeProvider>
