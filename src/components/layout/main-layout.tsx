@@ -5,8 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Header from "@/components/header";
-import { Skeleton } from "../ui/skeleton";
 import MaintenancePage from "../maintenance-page";
+import SelfDestructPage from "../self-destruct-page";
 
 export default function MainLayout({
   children,
@@ -27,11 +27,11 @@ export default function MainLayout({
   if (isLoading) {
     return <div className="w-screen h-screen bg-background" />;
   }
-
-  if (isSelfDestructed) {
-    return <div className="w-screen h-screen bg-background" />;
-  }
   
+  if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+
   if (!user) {
     // This case should theoretically be covered by the useEffect redirect,
     // but as a fallback, we can show a blank page.

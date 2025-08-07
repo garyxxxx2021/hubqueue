@@ -12,8 +12,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Wrench } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import Logo from '@/components/logo';
+import SelfDestructPage from './self-destruct-page';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
@@ -53,11 +53,15 @@ export default function LoginForm() {
     }
   };
 
-  if (isAuthLoading || (!isAuthLoading && user)) {
+  if (isAuthLoading) {
      return <div className="w-screen h-screen bg-background" />;
   }
 
   if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+  
+  if (user) {
     return <div className="w-screen h-screen bg-background" />;
   }
 

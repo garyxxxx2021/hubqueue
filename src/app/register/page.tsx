@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 import Logo from '@/components/logo';
+import SelfDestructPage from '@/components/self-destruct-page';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
@@ -53,11 +53,15 @@ export default function RegisterPage() {
     }
   };
   
-  if (isAuthLoading || (!isAuthLoading && user)) {
+  if (isAuthLoading) {
     return <div className="w-screen h-screen bg-background" />;
   }
 
   if (isSelfDestructed) {
+    return <SelfDestructPage />;
+  }
+
+  if (user) {
     return <div className="w-screen h-screen bg-background" />;
   }
 

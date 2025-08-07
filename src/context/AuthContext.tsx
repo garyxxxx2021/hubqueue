@@ -91,7 +91,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       try {
           const selfDestructStatus = await checkSelfDestructStatus();
-          setIsSelfDestructed(selfDestructStatus.selfDestruct);
+          if (selfDestructStatus.selfDestruct) {
+            setIsSelfDestructed(true);
+            // Don't bother loading user data if we are in self-destruct mode.
+            return;
+          }
 
           const storedSession = Cookies.get(USER_COOKIE_KEY);
           if (storedSession) {
