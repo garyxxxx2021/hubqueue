@@ -15,31 +15,40 @@ const pageStyles: React.CSSProperties = {
     justifyContent: 'center',
 };
 
+const mainContentStyles: React.CSSProperties = {
+    width: '100%',
+};
+
 const titleStyles: React.CSSProperties = {
-    fontSize: '24px',
+    display: 'block',
+    margin: '0',
+    fontSize: '2em',
     fontWeight: 'bold',
 };
 
 const hrStyles: React.CSSProperties = {
-    width: '80%',
-    maxWidth: '600px',
+    width: '50%',
+    maxWidth: '400px',
     border: 'none',
-    borderTop: '1px solid #ddd',
-    margin: '20px auto',
+    borderTop: '1px solid #eee',
+    margin: '10px auto',
 }
 
 const footerStyles: React.CSSProperties = {
     color: '#333',
-    fontSize: '16px',
+    fontSize: '1em',
+    margin: '0',
 }
 
 
 export default function SelfDestructPage() {
   return (
     <div style={pageStyles}>
+      <div style={mainContentStyles}>
         <h1 style={titleStyles}>500 Internal Server Error</h1>
         <hr style={hrStyles} />
         <p style={footerStyles}>openresty</p>
+      </div>
     </div>
   );
 }
