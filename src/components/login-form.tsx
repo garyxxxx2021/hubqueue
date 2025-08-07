@@ -52,7 +52,7 @@ export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { login, user, isLoading: isAuthLoading, isMaintenanceMode } = useAuth();
+  const { login, user, isLoading: isAuthLoading, isMaintenanceMode, isSelfDestructed } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -88,6 +88,10 @@ export default function LoginForm() {
 
   if (isAuthLoading || (!isAuthLoading && user)) {
      return <LoginSkeleton />;
+  }
+
+  if (isSelfDestructed) {
+    return <div className="w-screen h-screen bg-background" />;
   }
 
   return (

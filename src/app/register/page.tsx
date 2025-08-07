@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,7 +18,7 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const { register, user, isLoading: isAuthLoading } = useAuth();
+  const { register, user, isLoading: isAuthLoading, isSelfDestructed } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -83,6 +84,10 @@ export default function RegisterPage() {
             </Card>
         </div>
      );
+  }
+
+  if (isSelfDestructed) {
+    return <div className="w-screen h-screen bg-background" />;
   }
 
   return (

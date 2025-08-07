@@ -68,6 +68,10 @@ export default function MainLayout({
         </div>
     );
   }
+
+  if (isSelfDestructed) {
+    return <div className="w-screen h-screen bg-background" />;
+  }
   
   if (!user) {
     // This case should theoretically be covered by the useEffect redirect,
@@ -89,10 +93,6 @@ export default function MainLayout({
             </main>
         </div>
     );
-  }
-
-  if (isSelfDestructed && !user.isAdmin) {
-    return <div className="w-screen h-screen bg-background" />;
   }
 
   if (isMaintenanceMode && !user.isAdmin) {
