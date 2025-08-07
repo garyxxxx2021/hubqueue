@@ -13,36 +13,34 @@ import { useAuth } from '@/context/AuthContext';
 import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
 import Ably from 'ably';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Progress } from './ui/progress';
+import { format } from 'date-fns';
+
 
 function SelfDestructTimer() {
   const { lastUploadTime } = useAuth();
   const [timeLeft, setTimeLeft] = useState('');
   const [urgency, setUrgency] = useState('normal'); // 'normal', 'warning', 'danger'
+  const [progress, setProgress] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
+
+  const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
 
   useEffect(() => {
-    const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
-      
-    const updateTimer = (deadline: number | null) => {
-      if (deadline === null) {
-        setTimeLeft('05:00:00:00');
-        setUrgency('normal');
-        return;
-      }
-
+    const updateTimer = () => {
       const now = Date.now();
-      const remaining = deadline - now;
+      const deadline = lastUploadTime ? lastUploadTime + fiveDaysInMillis : now + fiveDaysInMillis;
+
+      setStartTime(lastUploadTime);
+      setEndTime(deadline);
       
-      // If the remaining time is greater than the max, it means the last upload time is in the future.
-      // In this edge case, we just show the full time.
-      if (remaining > fiveDaysInMillis) {
-        setTimeLeft('05:00:00:00');
-        setUrgency('normal');
-        return;
-      }
+      const remaining = deadline - now;
 
       if (remaining <= 0) {
         setTimeLeft('00:00:00:00');
         setUrgency('danger');
+        setProgress(100);
         return;
       }
       
@@ -54,6 +52,11 @@ function SelfDestructTimer() {
       setTimeLeft(
         `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
       );
+      
+      const start = lastUploadTime || (now - 1); // Avoid division by zero if no last upload
+      const totalDuration = deadline - start;
+      const elapsed = now - start;
+      setProgress(Math.min(100, (elapsed / totalDuration) * 100));
 
       if (remaining < 24 * 60 * 60 * 1000) { // Less than 1 day
         setUrgency('danger');
@@ -64,12 +67,8 @@ function SelfDestructTimer() {
       }
     };
     
-    const deadline = lastUploadTime ? lastUploadTime + fiveDaysInMillis : null;
-    updateTimer(deadline);
-
-    const timerInterval = setInterval(() => {
-      updateTimer(deadline);
-    }, 1000);
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(timerInterval);
   }, [lastUploadTime]);
@@ -79,6 +78,10 @@ function SelfDestructTimer() {
     warning: 'text-yellow-500',
     danger: 'text-destructive animate-pulse',
   };
+
+  const formattedStartTime = startTime ? format(new Date(startTime), 'yyyy-MM-dd HH:mm') : 'N/A';
+  const formattedEndTime = endTime ? format(new Date(endTime), 'yyyy-MM-dd HH:mm') : '计算中...';
+
 
   return (
     <Card className="mb-8">
@@ -90,9 +93,14 @@ function SelfDestructTimer() {
         <div className={`text-2xl font-bold ${urgencyStyles[urgency]}`}>
             {timeLeft || '计算中...'}
         </div>
-        <p className="text-xs text-muted-foreground">
-          若连续5天无新上传，系统将进入无响应状态。
+        <p className="text-xs text-muted-foreground mb-4">
+          若连续5天无新活动，系统将自毁。
         </p>
+        <Progress value={progress} className="w-full h-2 mb-2" />
+        <div className="flex justify-between text-xs text-muted-foreground">
+            <span>最后活跃: {formattedStartTime}</span>
+            <span>预计自毁: {formattedEndTime}</span>
+        </div>
       </CardContent>
     </Card>
   );
