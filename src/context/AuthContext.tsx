@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Cookies from 'js-cookie';
-import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers, checkSelfDestructStatus } from '@/services/webdav'; 
+import { getUsers, StoredUser, getMaintenanceStatus, addUser, UserRole, saveUsers, checkSelfDestructStatus, getLastUploadTime } from '@/services/webdav'; 
 
 interface User {
   username: string;
@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   isMaintenanceMode: boolean;
   isSelfDestructed: boolean;
+  lastUploadTime: number | null;
   login: (username: string, password_input: string) => Promise<{success: boolean, message?: string}>;
   logout: () => void;
   register: (username: string, password_input: string) => Promise<{ success: boolean; message: string }>;
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isSelfDestructed, setIsSelfDestructed] = useState(false);
+  const [lastUploadTime, setLastUploadTime] = useState<number | null>(null);
 
   const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
     try {
@@ -90,7 +92,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const loadUserFromCookie = async () => {
       setIsLoading(true);
       try {
-          const selfDestructStatus = await checkSelfDestructStatus();
+          const [selfDestructStatus, lastUpload] = await Promise.all([
+             checkSelfDestructStatus(),
+             getLastUploadTime()
+          ]);
+          setLastUploadTime(lastUpload);
+          
           if (selfDestructStatus.selfDestruct) {
             setIsSelfDestructed(true);
             // Don't bother loading user data if we are in self-destruct mode.
@@ -225,7 +232,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
-  const value = { user, isMaintenanceMode, isSelfDestructed, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
+  const value = { user, isMaintenanceMode, isSelfDestructed, lastUploadTime, login, logout, register, isLoading, updateUserStatus, setMaintenanceMode: setIsMaintenanceMode };
 
   return (
     <AuthContext.Provider value={value}>

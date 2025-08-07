@@ -8,10 +8,93 @@ import { ImageQueue } from './image-queue';
 import { useToast } from "@/hooks/use-toast";
 import { getImageList, getHistoryList, addImage, updateImage, deleteImage } from '@/services/webdav';
 import { Skeleton } from './ui/skeleton';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getSoundPreference, getNotificationPreference } from '@/lib/preferences';
 import Ably from 'ably';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+
+function SelfDestructTimer() {
+  const { lastUploadTime } = useAuth();
+  const [timeLeft, setTimeLeft] = useState('');
+  const [urgency, setUrgency] = useState('normal'); // 'normal', 'warning', 'danger'
+
+  useEffect(() => {
+    if (lastUploadTime === null) {
+      // If there are no uploads, the timer logic depends on the initial self-destruct rule.
+      // We can show a default message or a full 5-day countdown.
+      // For now, let's assume no uploads means we show the full countdown from now.
+      const deadline = Date.now() + 5 * 24 * 60 * 60 * 1000;
+      updateTimer(deadline);
+    } else {
+      const deadline = lastUploadTime + 5 * 24 * 60 * 60 * 1000;
+      updateTimer(deadline);
+    }
+    
+    const timerInterval = setInterval(() => {
+        if (lastUploadTime === null) {
+            const deadline = Date.now() + 5 * 24 * 60 * 60 * 1000;
+            updateTimer(deadline);
+        } else {
+             const deadline = lastUploadTime + 5 * 24 * 60 * 60 * 1000;
+             updateTimer(deadline);
+        }
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+
+    function updateTimer(deadline: number) {
+      const now = Date.now();
+      const remaining = deadline - now;
+
+      if (remaining <= 0) {
+        setTimeLeft('00:00:00:00');
+        setUrgency('danger');
+        return;
+      }
+      
+      const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+      setTimeLeft(
+        `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+
+      if (remaining < 24 * 60 * 60 * 1000) { // Less than 1 day
+        setUrgency('danger');
+      } else if (remaining < 3 * 24 * 60 * 60 * 1000) { // Less than 3 days
+        setUrgency('warning');
+      } else {
+        setUrgency('normal');
+      }
+    }
+  }, [lastUploadTime]);
+
+  const urgencyStyles = {
+    normal: 'text-primary',
+    warning: 'text-yellow-500',
+    danger: 'text-destructive animate-pulse',
+  };
+
+  return (
+    <Card className="mb-8">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">系统自毁倒计时</CardTitle>
+        <AlertTriangle className={`h-4 w-4 ${urgencyStyles[urgency]}`} />
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${urgencyStyles[urgency]}`}>
+            {timeLeft || '计算中...'}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          若连续5天无新上传，系统将进入无响应状态。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 
 export default function Dashboard() {
@@ -302,6 +385,7 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
+      <SelfDestructTimer />
       <ImageUploader onImageUploaded={handleImageUploaded} />
       {isLoading ? (
         <div className="mt-8">

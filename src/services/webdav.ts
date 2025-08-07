@@ -344,12 +344,31 @@ export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean
 
     const allImages = [...images, ...history];
     const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
-    const fiveDaysAgo = Date.now() - fiveDaysInMillis;
 
-    const hasRecentUpload = allImages.some(img => 
-        img.createdAt && img.createdAt > fiveDaysAgo
-    );
+    const hasRecentUpload = allImages.some(img => {
+        const createdAt = img.createdAt || 0;
+        return createdAt > (Date.now() - fiveDaysInMillis);
+    });
 
-    // If there is no recent upload, self-destruct.
     return { selfDestruct: !hasRecentUpload };
+}
+
+export async function getLastUploadTime(): Promise<number | null> {
+    const client = getWebdavClient();
+    const [images, history] = await Promise.all([
+        readFile<ImageFile[]>(client, IMAGES_FILE, []),
+        readFile<ImageFile[]>(client, HISTORY_FILE, [])
+    ]);
+    
+    const allImages = [...images, ...history];
+    if (allImages.length === 0) {
+        return null;
+    }
+
+    const mostRecentTimestamp = allImages.reduce((latest, img) => {
+        const createdAt = img.createdAt || 0;
+        return createdAt > latest ? createdAt : latest;
+    }, 0);
+
+    return mostRecentTimestamp > 0 ? mostRecentTimestamp : null;
 }
