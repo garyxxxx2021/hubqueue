@@ -55,11 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const verifyAndSetUser = async (username: string, hash: string): Promise<boolean> => {
     try {
-      const [users, maintenanceStatus] = await Promise.all([
-        getUsers(),
-        getMaintenanceStatus(),
-      ]);
-
+      const users = await getUsers();
       const foundUser = users.find(u => u.username === username && u.passwordHash === hash);
       if (foundUser) {
         if (foundUser.role === 'banned') {
@@ -75,7 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isTrusted: foundUser.role === 'admin' || foundUser.role === 'trusted', 
         };
         setUser(userData);
-        setIsMaintenanceMode(maintenanceStatus.isMaintenance);
+        // Maintenance status is loaded once at startup
         return true;
       }
     } catch (error) {
@@ -92,11 +88,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const loadUserFromCookie = async () => {
       setIsLoading(true);
       try {
-          const [selfDestructStatus, lastUpload] = await Promise.all([
+          const [selfDestructStatus, lastUpload, maintenanceStatus] = await Promise.all([
              checkSelfDestructStatus(),
-             getLastUploadTime()
+             getLastUploadTime(),
+             getMaintenanceStatus()
           ]);
           setLastUploadTime(lastUpload);
+          setIsMaintenanceMode(maintenanceStatus.isMaintenance);
           
           if (selfDestructStatus.selfDestruct) {
             setIsSelfDestructed(true);
@@ -110,15 +108,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (sessionData.username && sessionData.hash) {
                 await verifyAndSetUser(sessionData.username, sessionData.hash);
             } else {
-               // If cookie is invalid, still check maintenance status for public view
-               const status = await getMaintenanceStatus();
-               setIsMaintenanceMode(status.isMaintenance);
                setUser(null);
                Cookies.remove(USER_COOKIE_KEY);
             }
           } else {
-             const status = await getMaintenanceStatus();
-             setIsMaintenanceMode(status.isMaintenance);
              setUser(null);
           }
       } catch (error) {
