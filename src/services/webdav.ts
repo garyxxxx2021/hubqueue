@@ -343,14 +343,18 @@ export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean
     ]);
 
     const allImages = [...images, ...history];
-    const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
+    if (allImages.length === 0) {
+        return { selfDestruct: false };
+    }
 
-    const hasRecentUpload = allImages.some(img => {
+    const mostRecentTimestamp = allImages.reduce((latest, img) => {
         const createdAt = img.createdAt || 0;
-        return createdAt > (Date.now() - fiveDaysInMillis);
-    });
+        return createdAt > latest ? createdAt : latest;
+    }, 0);
 
-    return { selfDestruct: !hasRecentUpload };
+    const fiveDaysAgo = Date.now() - (5 * 24 * 60 * 60 * 1000);
+
+    return { selfDestruct: mostRecentTimestamp < fiveDaysAgo };
 }
 
 export async function getLastUploadTime(): Promise<number | null> {

@@ -20,6 +20,8 @@ function SelfDestructTimer() {
   const [urgency, setUrgency] = useState('normal'); // 'normal', 'warning', 'danger'
 
   useEffect(() => {
+    const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
+      
     const updateTimer = (deadline: number | null) => {
       if (deadline === null) {
         setTimeLeft('05:00:00:00');
@@ -29,6 +31,14 @@ function SelfDestructTimer() {
 
       const now = Date.now();
       const remaining = deadline - now;
+      
+      // If the remaining time is greater than the max, it means the last upload time is in the future.
+      // In this edge case, we just show the full time.
+      if (remaining > fiveDaysInMillis) {
+        setTimeLeft('05:00:00:00');
+        setUrgency('normal');
+        return;
+      }
 
       if (remaining <= 0) {
         setTimeLeft('00:00:00:00');
@@ -54,7 +64,7 @@ function SelfDestructTimer() {
       }
     };
     
-    const deadline = lastUploadTime ? lastUploadTime + 5 * 24 * 60 * 60 * 1000 : null;
+    const deadline = lastUploadTime ? lastUploadTime + fiveDaysInMillis : null;
     updateTimer(deadline);
 
     const timerInterval = setInterval(() => {
