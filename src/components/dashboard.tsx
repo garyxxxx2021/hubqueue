@@ -20,30 +20,13 @@ function SelfDestructTimer() {
   const [urgency, setUrgency] = useState('normal'); // 'normal', 'warning', 'danger'
 
   useEffect(() => {
-    if (lastUploadTime === null) {
-      // If there are no uploads, the timer logic depends on the initial self-destruct rule.
-      // We can show a default message or a full 5-day countdown.
-      // For now, let's assume no uploads means we show the full countdown from now.
-      const deadline = Date.now() + 5 * 24 * 60 * 60 * 1000;
-      updateTimer(deadline);
-    } else {
-      const deadline = lastUploadTime + 5 * 24 * 60 * 60 * 1000;
-      updateTimer(deadline);
-    }
-    
-    const timerInterval = setInterval(() => {
-        if (lastUploadTime === null) {
-            const deadline = Date.now() + 5 * 24 * 60 * 60 * 1000;
-            updateTimer(deadline);
-        } else {
-             const deadline = lastUploadTime + 5 * 24 * 60 * 60 * 1000;
-             updateTimer(deadline);
-        }
-    }, 1000);
+    const updateTimer = (deadline: number | null) => {
+      if (deadline === null) {
+        setTimeLeft('05:00:00:00');
+        setUrgency('normal');
+        return;
+      }
 
-    return () => clearInterval(timerInterval);
-
-    function updateTimer(deadline: number) {
       const now = Date.now();
       const remaining = deadline - now;
 
@@ -69,7 +52,16 @@ function SelfDestructTimer() {
       } else {
         setUrgency('normal');
       }
-    }
+    };
+    
+    const deadline = lastUploadTime ? lastUploadTime + 5 * 24 * 60 * 60 * 1000 : null;
+    updateTimer(deadline);
+
+    const timerInterval = setInterval(() => {
+      updateTimer(deadline);
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
   }, [lastUploadTime]);
 
   const urgencyStyles = {
