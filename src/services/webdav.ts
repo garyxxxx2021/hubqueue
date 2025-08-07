@@ -343,23 +343,13 @@ export async function checkSelfDestructStatus(): Promise<{ selfDestruct: boolean
     ]);
 
     const allImages = [...images, ...history];
-    if (allImages.length === 0) {
-        // If there are no images, we can consider it as not having recent activity.
-        // Or we can choose to only trigger after the first image. Let's assume no images = active.
-        return { selfDestruct: false }; 
-    }
-
-    const mostRecentUploadTimestamp = allImages.reduce((latest, img) => {
-        const createdAt = img.createdAt || 0;
-        return createdAt > latest ? createdAt : latest;
-    }, 0);
-
-    if (mostRecentUploadTimestamp === 0) {
-        return { selfDestruct: false };
-    }
-
     const fiveDaysInMillis = 5 * 24 * 60 * 60 * 1000;
-    const isInactive = (Date.now() - mostRecentUploadTimestamp) > fiveDaysInMillis;
+    const fiveDaysAgo = Date.now() - fiveDaysInMillis;
 
-    return { selfDestruct: isInactive };
+    const hasRecentUpload = allImages.some(img => 
+        img.createdAt && img.createdAt > fiveDaysAgo
+    );
+
+    // If there is no recent upload, self-destruct.
+    return { selfDestruct: !hasRecentUpload };
 }
